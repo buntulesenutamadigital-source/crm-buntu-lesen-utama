@@ -203,6 +203,7 @@
         </div>
         <div class="top-actions">
           <span class="badge green" id="agentStatus">AI Agent Aktif</span>
+          <button id="syncNow" class="btn btn-soft">Sync Supabase</button>
           <button id="resetDemo" class="btn btn-soft">Reset Data</button>
           <button id="logout" class="btn btn-danger">Keluar</button>
         </div>
@@ -224,6 +225,7 @@
   <div id="modalRoot"></div>
   <div id="toast" class="toast hidden"><b></b><span></span></div>
 
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script>
     const USERS = [
       {username:'admin', password:'admin123', name:'Admin Master', role:'admin', salesName:'ALL'},
@@ -266,13 +268,89 @@
     let activeConversation = null;
 
     function uid(){return 'id-' + Math.random().toString(36).slice(2,10) + Date.now().toString(36).slice(-4)}
-    function loadState(){
-      const raw = localStorage.getItem('bluCrmState');
-      if(!raw){const init=seedState(); saveState(init); return init}
-      try{return JSON.parse(raw)}catch(e){const init=seedState(); saveState(init); return init}
+
+    // ===============================
+    // SUPABASE CONFIG
+    // Ganti URL dan anon key di bawah jika memakai project Supabase lain.
+    // ===============================
+    const SUPABASE_URL = "https://giathujdgzuuaegnobvf.supabase.co";
+    const SUPABASE_ANON_KEY = "sb_publishable_d05FhLCChRqFPTGzoata-g_DZ51HEJJ";
+    const CRM_STATE_ID = "blu-crm-main";
+    const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+    let appState = seedState();
+    let isSaving = false;
+
+    function normalizeState(state={}){
+      const fresh = seedState();
+      return {
+        pipelines:Array.isArray(state.pipelines) ? state.pipelines : fresh.pipelines,
+        customers:Array.isArray(state.customers) ? state.customers : fresh.customers,
+        campaigns:Array.isArray(state.campaigns) ? state.campaigns : fresh.campaigns,
+        conversations:Array.isArray(state.conversations) ? state.conversations : fresh.conversations,
+        agent:state.agent ? {...fresh.agent, ...state.agent, rules:Array.isArray(state.agent.rules) ? state.agent.rules : fresh.agent.rules} : fresh.agent,
+        settings:state.settings ? {...fresh.settings, ...state.settings} : fresh.settings
+      };
     }
-    function saveState(state=appState){localStorage.setItem('bluCrmState', JSON.stringify(state))}
-    let appState = loadState();
+
+    async function loadState(){
+      try{
+        const { data, error } = await supabaseClient
+          .from('crm_state')
+          .select('data')
+          .eq('id', CRM_STATE_ID)
+          .maybeSingle();
+
+        if(error) throw error;
+
+        if(data && data.data && Object.keys(data.data).length){
+          const synced = normalizeState(data.data);
+          localStorage.setItem('bluCrmStateFallback', JSON.stringify(synced));
+          return synced;
+        }
+
+        const init = normalizeState(seedState());
+        await saveState(init);
+        return init;
+      }catch(error){
+        console.error('Gagal load Supabase:', error);
+        const raw = localStorage.getItem('bluCrmStateFallback') || localStorage.getItem('bluCrmState');
+        if(raw){
+          try{return normalizeState(JSON.parse(raw))}catch(e){}
+        }
+        return normalizeState(seedState());
+      }
+    }
+
+    async function saveState(state=appState){
+      const payload = normalizeState(state);
+      appState = payload;
+      localStorage.setItem('bluCrmStateFallback', JSON.stringify(payload));
+
+      try{
+        isSaving = true;
+        const { error } = await supabaseClient
+          .from('crm_state')
+          .upsert({
+            id: CRM_STATE_ID,
+            data: payload,
+            updated_at: new Date().toISOString()
+          }, { onConflict: 'id' });
+        if(error) throw error;
+      }catch(error){
+        console.error('Gagal save Supabase:', error);
+        toast('Supabase belum tersambung','Data sementara tersimpan lokal. Jalankan SQL schema di Supabase lalu refresh halaman.');
+      }finally{
+        isSaving = false;
+      }
+    }
+
+    async function refreshFromSupabase(showToast=false){
+      if(isSaving) return;
+      appState = await loadState();
+      renderAll();
+      if(showToast) toast('Data disinkronkan','Data terbaru berhasil diambil dari Supabase.');
+    }
 
     const $ = q => document.querySelector(q);
     const $$ = q => [...document.querySelectorAll(q)];
@@ -300,8 +378,9 @@
       currentUser=found; localStorage.setItem('bluCrmUser', JSON.stringify(found)); bootApp();
     });
     $('#logout').addEventListener('click',()=>{localStorage.removeItem('bluCrmUser'); location.reload()});
-    $('#resetDemo').addEventListener('click',()=>{if(confirm('Reset seluruh data demo?')){appState=seedState(); saveState(); renderAll(); toast('Data direset','Pipeline kembali kosong dan data demo dimuat ulang.')}});
+    $('#resetDemo').addEventListener('click',async()=>{if(confirm('Reset seluruh data demo?')){appState=seedState(); await saveState(); renderAll(); toast('Data direset','Pipeline kembali kosong dan data demo dimuat ulang di Supabase.')}});
     $('#mobileToggle').addEventListener('click',()=>$('#sidebar').classList.toggle('open'));
+    $('#syncNow').addEventListener('click',()=>refreshFromSupabase(true));
     $('#nav').addEventListener('click',e=>{const btn=e.target.closest('button'); if(btn) setPage(btn.dataset.view)});
 
     function bootApp(){
@@ -313,7 +392,6 @@
       $('#agentStatus').className='badge '+(appState.agent.enabled?'green':'red');
       renderAll('dashboard');
     }
-    const savedUser=localStorage.getItem('bluCrmUser'); if(savedUser){try{currentUser=JSON.parse(savedUser); bootApp()}catch(e){}}
 
     function renderAll(view){
       const active=view || document.querySelector('.view.active')?.id || 'dashboard';
@@ -514,7 +592,7 @@
       $('#users').innerHTML=`<div class="card"><div class="card-head"><div><h3>User Access Matrix</h3><small>Role demo untuk admin master dan 4 sales.</small></div></div><div class="table-wrap"><table class="data-table"><thead><tr><th>User</th><th>Username</th><th>Role</th><th>Pipeline Access</th><th>Inbox Access</th><th>Marketing</th><th>Status</th></tr></thead><tbody>${USERS.map(u=>`<tr><td><b>${u.name}</b></td><td>${u.username}</td><td>${u.role}</td><td>${u.role==='admin'?'Semua sales':u.salesName}</td><td>${u.role==='admin'?'Semua chat':'Chat assigned '+u.salesName}</td><td>${u.role==='admin'?'Semua campaign':'Campaign sendiri'}</td><td><span class="badge green">Active</span></td></tr>`).join('')}</tbody></table></div></div>`;
     }
     function renderSettings(){
-      $('#settings').innerHTML=`<div class="grid grid-2"><div class="card"><h3>Workspace Settings</h3><small>Pengaturan umum CRM demo.</small><div style="margin-top:16px"><div class="field"><label>SLA Response Menit</label><input id="setSla" type="number" value="${appState.settings.sla}"></div><div class="field"><label>Currency</label><input id="setCurrency" value="${appState.settings.currency}"></div><div class="field"><label>Timezone</label><input id="setTimezone" value="${appState.settings.timezone}"></div><button class="btn btn-primary" onclick="saveSettings()">Simpan Settings</button></div></div><div class="card"><h3>Catatan Implementasi</h3><small>File ini adalah front end HTML statis. Data tersimpan di browser melalui localStorage. Untuk produksi, hubungkan ke backend, database, WhatsApp Business API, email API, dan model AI pilihan perusahaan.</small><div style="margin-top:16px" class="rule-list"><div class="rule"><b>Integrasi yang disiapkan</b><p>Struktur UI sudah memisahkan omnichannel inbox, pipeline, customer, marketing, reporting, user access, dan agent automation.</p></div><div class="rule"><b>Pipeline</b><p>Pada kolom pipeline Data awal sengaja kosong agar bisa langsung dipakai untuk input baru.</p></div></div></div></div>`;
+      $('#settings').innerHTML=`<div class="grid grid-2"><div class="card"><h3>Workspace Settings</h3><small>Pengaturan umum CRM demo.</small><div style="margin-top:16px"><div class="field"><label>SLA Response Menit</label><input id="setSla" type="number" value="${appState.settings.sla}"></div><div class="field"><label>Currency</label><input id="setCurrency" value="${appState.settings.currency}"></div><div class="field"><label>Timezone</label><input id="setTimezone" value="${appState.settings.timezone}"></div><button class="btn btn-primary" onclick="saveSettings()">Simpan Settings</button></div></div><div class="card"><h3>Catatan Implementasi</h3><small>File ini sudah terhubung ke Supabase. Data pipeline, customer, chat, campaign, agent, dan settings tersimpan di tabel crm_state. Untuk produksi, aktifkan Supabase Auth, RLS yang lebih ketat, WhatsApp Business API, email API, dan model AI pilihan perusahaan.</small><div style="margin-top:16px" class="rule-list"><div class="rule"><b>Integrasi yang disiapkan</b><p>Struktur UI sudah memisahkan omnichannel inbox, pipeline, customer, marketing, reporting, user access, dan agent automation.</p></div><div class="rule"><b>Pipeline</b><p>Pada kolom pipeline Data awal sengaja kosong agar bisa langsung dipakai untuk input baru.</p></div></div></div></div>`;
     }
     function saveSettings(){appState.settings.sla=Number($('#setSla').value||15); appState.settings.currency=$('#setCurrency').value; appState.settings.timezone=$('#setTimezone').value; saveState(); renderSettings(); toast('Settings tersimpan','Pengaturan workspace diperbarui.')}
 
@@ -522,14 +600,24 @@
     function selectField(label,id,options,value='',disabled=false){const val=value || options[0]; return `<div class="field"><label>${label}</label><select id="${id}" ${disabled?'disabled':''}>${options.map(o=>`<option value="${escapeHTML(o)}" ${o===val?'selected':''}>${escapeHTML(o)}</option>`).join('')}</select></div>`}
     function modal(title,body){$('#modalRoot').innerHTML=`<div class="modal-backdrop"><div class="modal"><div class="modal-head"><div>${title}</div><button class="xbtn" onclick="closeModal()">×</button></div>${body}</div></div>`}
     function closeModal(){$('#modalRoot').innerHTML=''}
+
+    async function initApp(){
+      appState = await loadState();
+      const savedUser = localStorage.getItem('bluCrmUser');
+      if(savedUser){
+        try{
+          currentUser = JSON.parse(savedUser);
+          bootApp();
+        }catch(e){
+          localStorage.removeItem('bluCrmUser');
+        }
+      }
+      setInterval(()=>{
+        if(currentUser) refreshFromSupabase(false);
+      }, 20000);
+    }
+
+    initApp();
   </script>
-
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-
-<script>
-  const SUPABASE_URL = "https://giathujdgzuuaegnobvf.supabase.co";
-  const SUPABASE_KEY = "sb_publishable_d05FhLCChRqFPTGzoata-g_DZ51HEJJ";
-
-  const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
-</script></body>
+</body>
 </html>
