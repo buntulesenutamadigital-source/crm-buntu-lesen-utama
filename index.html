@@ -355,6 +355,12 @@
     const $ = q => document.querySelector(q);
     const $$ = q => [...document.querySelectorAll(q)];
     const money = n => new Intl.NumberFormat('id-ID',{style:'currency',currency:'IDR',maximumFractionDigits:0}).format(Number(n||0));
+    function calcWeightedValue(p){
+  const est = Number(p['Estimated Value (IDR)'] || 0);
+  const probRaw = Number(p['Probability (%)'] || 0);
+  const probRate = probRaw > 1 ? probRaw / 100 : probRaw;
+  return est * probRate;
+}
     const percent = n => ((Number(n||0)*100).toFixed(0)+'%');
     const today = () => new Date().toISOString().slice(0,10);
     function toast(title,msg){const el=$('#toast'); el.querySelector('b').textContent=title; el.querySelector('span').textContent=msg; el.classList.remove('hidden'); clearTimeout(window.toastTimer); window.toastTimer=setTimeout(()=>el.classList.add('hidden'),2600)}
@@ -410,7 +416,7 @@
       const pipes=visiblePipelines(); const conv=visibleConversations();
       const won=pipes.filter(p=>p.Stage==='Won'); const lost=pipes.filter(p=>p.Stage==='Lost');
       const est=pipes.reduce((s,p)=>s+Number(p['Estimated Value (IDR)']||0),0);
-      const weighted=pipes.reduce((s,p)=>s+Number(p['Weighted Value (IDR)']||0),0);
+      const weighted=pipes.reduce((s,p)=>s+calcWeightedValue(p),0);
       return {pipes,conv,won,lost,est,weighted,conversion:pipes.length?won.length/pipes.length:0};
     }
     function renderDashboard(){
@@ -516,7 +522,7 @@
           ${kpi('Opportunity', pipes.length, 'Data pipeline yang terlihat', 'orange')}
           ${kpi('Won', pipes.filter(p=>p.Stage==='Won').length, 'Closing berhasil', 'green')}
           ${kpi('Lost', pipes.filter(p=>p.Stage==='Lost').length, 'Tidak lanjut', 'red')}
-          ${kpi('Forecast', money(pipes.reduce((s,p)=>s+Number(p['Weighted Value (IDR)']||0),0)), 'Weighted value', 'violet')}
+          ${kpi('Forecast', money(pipes.reduce((s,p)=>s+calcWeightedValue(p),0)), 'Weighted value', 'violet')}
         </div>
         <div class="card"><div class="card-head"><div><h3>Pipeline Board</h3><small>Stage dari lead sampai closing. </small></div><div class="toolbar"><button class="btn btn-primary" onclick="openPipelineModal()">Tambah Opportunity</button><button class="btn btn-soft" onclick="exportPipelineCSV()">Export CSV</button></div></div><div class="pipeline-board">${STAGES.map(stage=>stageColumn(stage,pipes.filter(p=>p.Stage===stage))).join('')}</div></div>
         <div class="card"><div class="card-head"><div><h3>Pipeline Table</h3><small>Kolom mengikuti struktur sales pipeline.</small></div><div class="toolbar"><input id="pipelineSearch" placeholder="Cari customer, service, PIC" oninput="filterPipelineTable()"><select id="pipelineStageFilter" onchange="filterPipelineTable()"><option value="">Semua Stage</option>${STAGES.map(s=>`<option>${s}</option>`).join('')}</select></div></div><div id="pipelineTable">${pipelineTableHTML(pipes)}</div></div>`;
@@ -539,7 +545,7 @@
         ${field('Opportunity Name','pOpp','text','Contoh: BB 4 Unit',p?.['Opportunity Name']||'')}
         ${selectField('Stage','pStage',STAGES,p?.Stage||'Lead')}
         ${field('Status Detail','pDetail','text','Closing, follow up, nego',p?.['Status Detail']||'')}
-        ${field('Probability (%)','pProb','number','0 sampai 1',p?.['Probability (%)']??0.1)}
+        ${field('Probability (%)','pProb','number','0 sampai 100',p?.['Probability (%)']??10)}
         ${field('Volume','pVolume','text','Ton, unit, kontainer',p?.Volume||'')}
         ${field('Estimated Value (IDR)','pEstimated','number','Nilai peluang',p?.['Estimated Value (IDR)']||0)}
         ${field('Expected Close Date','pClose','date','',p?.['Expected Close Date']||today())}
@@ -555,7 +561,7 @@
     function savePipeline(id){
       const customer=$('#pCustomer').value.trim(); if(!customer){toast('Data belum lengkap','Customer Name wajib diisi.');return}
       const est=Number($('#pEstimated').value||0); const prob=Number($('#pProb').value||0);
-      const data={id:id||uid(), Date:$('#pDate').value, 'Sales Name':$('#pSales').value, Referral:$('#pReferral').value, 'Customer Name':customer, 'Customer Status':$('#pCustomerStatus').value, PIC:$('#pPic').value, Phone:$('#pPhone').value, 'Service Type':$('#pService').value, 'Opportunity Name':$('#pOpp').value, Stage:$('#pStage').value, 'Status Detail':$('#pDetail').value, 'Probability (%)':prob, Volume:$('#pVolume').value, 'Estimated Value (IDR)':est, 'Weighted Value (IDR)':est*prob, 'Expected Close Date':$('#pClose').value, 'Customer Industry':$('#pIndustry').value, Loading:$('#pLoading').value, Discharged:$('#pDischarged').value, Competitor:$('#pCompetitor').value, 'Last Update':today(), Remarks:$('#pRemarks').value};
+      const data={id:id||uid(), Date:$('#pDate').value, 'Sales Name':$('#pSales').value, Referral:$('#pReferral').value, 'Customer Name':customer, 'Customer Status':$('#pCustomerStatus').value, PIC:$('#pPic').value, Phone:$('#pPhone').value, 'Service Type':$('#pService').value, 'Opportunity Name':$('#pOpp').value, Stage:$('#pStage').value, 'Status Detail':$('#pDetail').value, 'Probability (%)':prob, Volume:$('#pVolume').value, 'Estimated Value (IDR)':est, 'Weighted Value (IDR)':est*(prob > 1 ? prob/100 : prob), 'Expected Close Date':$('#pClose').value, 'Customer Industry':$('#pIndustry').value, Loading:$('#pLoading').value, Discharged:$('#pDischarged').value, Competitor:$('#pCompetitor').value, 'Last Update':today(), Remarks:$('#pRemarks').value};
       const idx=appState.pipelines.findIndex(x=>x.id===id); if(idx>=0) appState.pipelines[idx]=data; else appState.pipelines.push(data);
       syncCustomerFromPipeline(data); saveState(); closeModal(); renderPipeline(); toast('Opportunity tersimpan','Data pipeline berhasil diperbarui.');
     }
