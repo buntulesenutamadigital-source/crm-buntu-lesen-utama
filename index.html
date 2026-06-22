@@ -282,6 +282,7 @@
     const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
     let appState = seedState();
+    
     let isSaving = false;
 
     function normalizeState(state={}){
@@ -369,7 +370,21 @@
     function toast(title,msg){const el=$('#toast'); el.querySelector('b').textContent=title; el.querySelector('span').textContent=msg; el.classList.remove('hidden'); clearTimeout(window.toastTimer); window.toastTimer=setTimeout(()=>el.classList.add('hidden'),2600)}
     function escapeHTML(str=''){return String(str).replace(/[&<>"]/g, s => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[s]))}
     function canSeeOwner(owner){return currentUser?.role === 'admin' || owner === currentUser?.salesName}
-    function visiblePipelines(){return appState.pipelines.filter(p => currentUser?.role === 'admin' || p['Sales Name'] === currentUser.salesName)}
+    function visiblePipelines(){
+  let data = appState.pipelines || [];
+
+  // filter role
+  if(currentUser?.role !== 'admin'){
+    data = data.filter(p => p['Sales Name'] === currentUser.salesName);
+  }
+
+  // filter bulan (INI YANG KAMU TAMBAH)
+  if(selectedMonth){
+    data = data.filter(p => getMonth(p.Date) === selectedMonth);
+  }
+
+  return data;
+}
     function visibleConversations(){return appState.conversations.filter(c => currentUser?.role === 'admin' || c.assigned === currentUser.salesName || c.assigned === 'Unassigned')}
     function setPage(view){
       $$('.nav button').forEach(b=>b.classList.toggle('active',b.dataset.view===view));
@@ -416,12 +431,25 @@
     }
 
     function stats(){
-      const pipes=visiblePipelines(); const conv=visibleConversations();
-      const won=pipes.filter(p=>p.Stage==='Won'); const lost=pipes.filter(p=>p.Stage==='Lost');
-      const est=pipes.reduce((s,p)=>s+Number(p['Estimated Value (IDR)']||0),0);
-      const weighted=pipes.reduce((s,p)=>s+calcWeightedValue(p),0);
-      return {pipes,conv,won,lost,est,weighted,conversion:pipes.length?won.length/pipes.length:0};
-    }
+  const pipes = visiblePipelines();
+  const conv = visibleConversations();
+
+  const won = pipes.filter(p => p.Stage === 'Won');
+  const lost = pipes.filter(p => p.Stage === 'Lost');
+
+  const est = pipes.reduce((s,p)=>s+Number(p['Estimated Value (IDR)']||0),0);
+  const weighted = pipes.reduce((s,p)=>s+calcWeightedValue(p),0);
+
+  return {
+    pipes,
+    conv,
+    won,
+    lost,
+    est,
+    weighted,
+    conversion: pipes.length ? won.length / pipes.length : 0
+  };
+}
     function renderDashboard(){
       const s=stats();
       $('#dashboard').innerHTML = `
