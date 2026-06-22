@@ -203,6 +203,9 @@
         </div>
         <div class="top-actions">
           <span class="badge green" id="agentStatus">AI Agent Aktif</span>
+          <select id="monthFilter" class="btn btn-soft" onchange="setMonth(this.value)">
+            <option value="">All Month</option>
+          </select>
           <button id="syncNow" class="btn btn-soft">Sync Supabase</button>
           <button id="resetDemo" class="btn btn-soft">Reset Data</button>
           <button id="logout" class="btn btn-danger">Keluar</button>
@@ -624,6 +627,31 @@
     }
 
     initApp();
-  </script>
+  
+let selectedMonth = "";
+
+function getMonth(dateStr){
+  return dateStr ? dateStr.slice(0,7) : "";
+}
+
+function setMonth(val){
+  selectedMonth = val;
+  renderAll();
+}
+
+function populateMonthOptions(){
+  const sel = document.getElementById('monthFilter');
+  if(!sel) return;
+  const months = [...new Set((appState.pipelines||[]).map(p=>getMonth(p.Date)).filter(Boolean))];
+  sel.innerHTML = '<option value="">All Month</option>' + months.sort().map(m=>`<option value="${m}">${m}</option>`).join('');
+}
+
+const _bootApp = bootApp;
+bootApp = function(){
+  _bootApp();
+  populateMonthOptions();
+}
+
+</script>
 </body>
 </html>
