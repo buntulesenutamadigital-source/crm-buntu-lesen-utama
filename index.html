@@ -433,17 +433,33 @@ const seedState = () => ({
     
     let isSaving = false;
 
-    function normalizeState(state={}){
-      const fresh = seedState();
-      return {
-        pipelines:Array.isArray(state.pipelines) ? state.pipelines : fresh.pipelines,
-        customers:Array.isArray(state.customers) ? state.customers : fresh.customers,
-        campaigns:Array.isArray(state.campaigns) ? state.campaigns : fresh.campaigns,
-        conversations:Array.isArray(state.conversations) ? state.conversations : fresh.conversations,
-        agent:state.agent ? {...fresh.agent, ...state.agent, rules:Array.isArray(state.agent.rules) ? state.agent.rules : fresh.agent.rules} : fresh.agent,
-        settings:state.settings ? {...fresh.settings, ...state.settings} : fresh.settings
-      };
-    }
+    function normalizeState(state = {}){
+  const fresh = seedState();
+
+  return {
+    pipelines: Array.isArray(state.pipelines) ? state.pipelines : fresh.pipelines,
+    customers: Array.isArray(state.customers) ? state.customers : fresh.customers,
+    campaigns: Array.isArray(state.campaigns) ? state.campaigns : fresh.campaigns,
+    conversations: Array.isArray(state.conversations) ? state.conversations : fresh.conversations,
+
+    // ✅ FIX INI
+    inquiries: Array.isArray(state.inquiries) ? state.inquiries : fresh.inquiries,
+
+    agent: state.agent
+      ? {
+          ...fresh.agent,
+          ...state.agent,
+          rules: Array.isArray(state.agent.rules)
+            ? state.agent.rules
+            : fresh.agent.rules
+        }
+      : fresh.agent,
+
+    settings: state.settings
+      ? { ...fresh.settings, ...state.settings }
+      : fresh.settings
+  };
+}
 
     async function loadState(){
       try{
