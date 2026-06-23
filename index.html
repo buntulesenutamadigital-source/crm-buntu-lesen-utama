@@ -190,6 +190,7 @@
         <button data-view="pipeline"><span class="icon">▥</span>Sales Pipeline</button>
         <button data-view="customers"><span class="icon">◎</span>Customer 360</button>
         <button data-view="marketing"><span class="icon">◉</span>Marketing</button>
+        <button data-view="inquiry"><span class="icon">✎</span>Inquiry CS</button>
         <button data-view="reports"><span class="icon">▤</span>Reports</button>
         <button data-view="users" data-admin-only="true"><span class="icon">☷</span>User Access</button>
         <button data-view="settings"><span class="icon">⚙</span>Settings</button>
@@ -221,6 +222,7 @@
         <div id="reports" class="view"></div>
         <div id="users" class="view"></div>
         <div id="settings" class="view"></div>
+        <div id="inquiry" class="view"></div>
       </section>
     </main>
   </div>
@@ -229,6 +231,135 @@
   <div id="toast" class="toast hidden"><b></b><span></span></div>
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script>
+// ================= INQUIRY CS MODULE =================
+function visibleInquiries(){
+  let data = (appState?.inquiries || []);
+  if(currentUser.role !== 'admin'){
+    data = data.filter(i => i.sales === currentUser.salesName);
+  }
+  return data;
+}
+
+function renderInquiry(){
+  if(!$('#inquiry')) return;
+  const data = visibleInquiries() || [];
+
+  $('#inquiry').innerHTML = `
+    <div class="grid grid-4">
+      ${kpi('Total Inquiry', data.length, 'Data dari CS', 'orange')}
+      ${kpi('Open', data.filter(d=>d.status==='Open').length, 'Belum diproses', 'amber')}
+      ${kpi('In Progress', data.filter(d=>d.status==='In Progress').length, 'Sedang follow up', 'violet')}
+      ${kpi('Goal', data.filter(d=>d.status==='Goal').length, 'Closing berhasil', 'green')}
+    </div>
+
+    <div class="card">
+      <div class="card-head">
+        <div>
+          <h3>Inquiry CS</h3>
+          <small>Admin input, sales update status</small>
+        </div>
+        <button class="btn btn-primary" onclick="openInquiryModal()">Tambah Inquiry</button>
+      </div>
+
+      <div class="table-wrap">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>Tanggal</th>
+              <th>Customer</th>
+              <th>Perusahaan</th>
+              <th>Kontak</th>
+              <th>Jenis Kegiatan</th>
+              <th>Sales</th>
+              <th>Status</th>
+              <th>Aksi</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${data.map(i=>`
+              <tr>
+                <td>${i.tanggal}</td>
+                <td>${i.customer}</td>
+                <td>${i.perusahaan}</td>
+                <td>${i.kontak}</td>
+                <td>${i.kegiatan}</td>
+                <td>${i.sales}</td>
+                <td>
+                  <select onchange="updateInquiry('${i.id}', this.value)">
+                    <option ${i.status==='Open'?'selected':''}>Open</option>
+                    <option ${i.status==='In Progress'?'selected':''}>In Progress</option>
+                    <option ${i.status==='Lost'?'selected':''}>Lost</option>
+                    <option ${i.status==='Goal'?'selected':''}>Goal</option>
+                  </select>
+                </td>
+                <td>
+                  <button class="btn btn-danger" onclick="deleteInquiry('${i.id}')">Hapus</button>
+                </td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  `;
+}
+
+function openInquiryModal(){
+  modal(`<h2>Input Inquiry CS</h2>`,
+  `
+  <div class="form-grid">
+    ${field('Tanggal','inqDate','date','',today())}
+    ${field('Nama Customer','inqCustomer','text','')}
+    ${field('Nama Perusahaan','inqCompany','text','')}
+    ${field('Kontak','inqContact','text','')}
+    ${field('Jenis Kegiatan','inqActivity','text','')}
+    ${selectField('Sales','inqSales',SALES)}
+  </div>
+
+  <div class="toolbar" style="margin-top:18px">
+    <button class="btn btn-primary" onclick="saveInquiry()">Simpan</button>
+    <button class="btn btn-soft" onclick="closeModal()">Batal</button>
+  </div>
+  `);
+}
+
+function saveInquiry(){
+  appState.inquiries.unshift({
+    id: uid(),
+    tanggal: $('#inqDate').value,
+    customer: $('#inqCustomer').value,
+    perusahaan: $('#inqCompany').value,
+    kontak: $('#inqContact').value,
+    kegiatan: $('#inqActivity').value,
+    sales: $('#inqSales').value,
+    status: 'Open'
+  });
+
+  saveState();
+  closeModal();
+  renderInquiry();
+  toast('Inquiry tersimpan','Data masuk sistem');
+}
+
+function updateInquiry(id,status){
+  const d = appState.inquiries.find(x=>x.id===id);
+  if(d){
+    d.status = status;
+    saveState();
+    renderInquiry();
+    toast('Update sukses','Status inquiry diperbarui');
+  }
+}
+
+function deleteInquiry(id){
+  if(!confirm('Hapus inquiry?')) return;
+  appState.inquiries = appState.inquiries.filter(x=>x.id!==id);
+  saveState();
+  renderInquiry();
+}
+
+</script>
   <script>
     const USERS = [
       {username:'admin', password:'admin123', name:'Admin Master', role:'admin', salesName:'ALL'},
@@ -242,7 +373,12 @@
     const PIPELINE_HEADERS = ['Date','Sales Name','Referral','Customer Name','Customer Status','PIC','Phone','Service Type','Opportunity Name','Stage','Status Detail','Probability (%)','Volume','Estimated Value (IDR)','Weighted Value (IDR)','Expected Close Date','Customer Industry','Loading','Discharged','Competitor','Last Update','Remarks'];
     const SERVICE_TYPES = ['PPJK','Trucking','Depo','Warehouse','Freight Forwarding','Customs Clearance'];
     const CHANNELS = ['WhatsApp','Instagram','Email','Webchat'];
-    const seedState = () => ({
+    
+// FIXED HELPERS ORDER
+function uid(){return 'id-' + Math.random().toString(36).slice(2,10) + Date.now().toString(36).slice(-4)}
+const today = () => new Date().toISOString().slice(0,10);
+
+const seedState = () => ({
       pipelines: [],
       customers: [],
       campaigns: [],
@@ -251,6 +387,18 @@
         {id:uid(), channel:'Instagram', customer:'CV Sumber Baja', phone:'-', assigned:'Melly', status:'Open', priority:'Medium', last:'Tanya layanan depo kontainer', messages:[{from:'in', text:'Apakah ada layanan depo kontainer?', time:'10:05'}]},
         {id:uid(), channel:'Email', customer:'PT Lautan Prima', phone:'021-3300-980', assigned:'Amrul', status:'Pending', priority:'Medium', last:'Follow up penawaran PPJK', messages:[{from:'in', text:'Mohon update penawaran PPJK untuk shipment minggu depan.', time:'11:20'}]},
         {id:uid(), channel:'Webchat', customer:'PT Agro Nusantara', phone:'0813-7777-1200', assigned:'Wilda', status:'Open', priority:'Low', last:'Butuh konsultasi pengiriman barang', messages:[{from:'in', text:'Saya butuh konsultasi pengiriman barang antarpulau.', time:'13:22'}]}
+      ],
+      inquiries: [
+        {
+          id: uid(),
+          tanggal: today(),
+          customer: 'PT Maju Logistik',
+          perusahaan: 'Maju Logistik Indonesia',
+          kontak: '08123456789',
+          kegiatan: 'Request penawaran trucking',
+          sales: 'Annisa',
+          status: 'Open'
+        }
       ],
       agent: {
         enabled:true,
@@ -270,7 +418,7 @@
     let currentUser = null;
     let activeConversation = null;
 
-    function uid(){return 'id-' + Math.random().toString(36).slice(2,10) + Date.now().toString(36).slice(-4)}
+    
 
     // ===============================
     // SUPABASE CONFIG
@@ -366,7 +514,7 @@
   return est * probRate;
 }
     const percent = n => ((Number(n||0)*100).toFixed(0)+'%');
-    const today = () => new Date().toISOString().slice(0,10);
+    
     function toast(title,msg){const el=$('#toast'); el.querySelector('b').textContent=title; el.querySelector('span').textContent=msg; el.classList.remove('hidden'); clearTimeout(window.toastTimer); window.toastTimer=setTimeout(()=>el.classList.add('hidden'),2600)}
     function escapeHTML(str=''){return String(str).replace(/[&<>"]/g, s => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[s]))}
     function canSeeOwner(owner){return currentUser?.role === 'admin' || owner === currentUser?.salesName}
@@ -390,7 +538,7 @@
       $$('.nav button').forEach(b=>b.classList.toggle('active',b.dataset.view===view));
       $$('.view').forEach(v=>v.classList.toggle('active',v.id===view));
       const titles={dashboard:['Dashboard','Ringkasan performa CRM hari ini'],inbox:['Omnichannel Inbox','Kelola percakapan pelanggan lintas channel'],agent:['WhatsApp AI Agent','Atur otomasi balasan WhatsApp dengan AI native'],pipeline:['Sales Pipeline','Input dan pantau opportunity dari awal sampai akhir'],customers:['Customer 360','Database pelanggan dan riwayat interaksi'],marketing:['Marketing','Segmentasi, campaign, dan broadcast WhatsApp'],reports:['Reports','Analitik penjualan, channel, dan aktivitas'],users:['User Access','Akses sales dan admin master'],settings:['Settings','Pengaturan workspace CRM']};
-      $('#pageTitle').textContent=titles[view][0]; $('#pageSub').textContent=titles[view][1];
+      $('#pageTitle').textContent=titles[view]; $('#pageSub').textContent=titles[view];
       renderAll(view); $('#sidebar').classList.remove('open');
     }
 
@@ -426,6 +574,7 @@
       if(active==='customers') renderCustomers();
       if(active==='marketing') renderMarketing();
       if(active==='reports') renderReports();
+      if(active==='inquiry') renderInquiry();
       if(active==='users') renderUsers();
       if(active==='settings') renderSettings();
     }
@@ -678,6 +827,134 @@ const _bootApp = bootApp;
 bootApp = function(){
   _bootApp();
   populateMonthOptions();
+}
+
+
+// ================= INQUIRY CS MODULE =================
+function visibleInquiries(){
+  let data = (appState?.inquiries || []);
+  if(currentUser.role !== 'admin'){
+    data = data.filter(i => i.sales === currentUser.salesName);
+  }
+  return data;
+}
+
+function renderInquiry(){
+  if(!$('#inquiry')) return;
+  const data = visibleInquiries() || [];
+
+  $('#inquiry').innerHTML = `
+    <div class="grid grid-4">
+      ${kpi('Total Inquiry', data.length, 'Data dari CS', 'orange')}
+      ${kpi('Open', data.filter(d=>d.status==='Open').length, 'Belum diproses', 'amber')}
+      ${kpi('In Progress', data.filter(d=>d.status==='In Progress').length, 'Sedang follow up', 'violet')}
+      ${kpi('Goal', data.filter(d=>d.status==='Goal').length, 'Closing berhasil', 'green')}
+    </div>
+
+    <div class="card">
+      <div class="card-head">
+        <div>
+          <h3>Inquiry CS</h3>
+          <small>Admin input, sales update status</small>
+        </div>
+        <button class="btn btn-primary" onclick="openInquiryModal()">Tambah Inquiry</button>
+      </div>
+
+      <div class="table-wrap">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>Tanggal</th>
+              <th>Customer</th>
+              <th>Perusahaan</th>
+              <th>Kontak</th>
+              <th>Jenis Kegiatan</th>
+              <th>Sales</th>
+              <th>Status</th>
+              <th>Aksi</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${data.map(i=>`
+              <tr>
+                <td>${i.tanggal}</td>
+                <td>${i.customer}</td>
+                <td>${i.perusahaan}</td>
+                <td>${i.kontak}</td>
+                <td>${i.kegiatan}</td>
+                <td>${i.sales}</td>
+                <td>
+                  <select onchange="updateInquiry('${i.id}', this.value)">
+                    <option ${i.status==='Open'?'selected':''}>Open</option>
+                    <option ${i.status==='In Progress'?'selected':''}>In Progress</option>
+                    <option ${i.status==='Lost'?'selected':''}>Lost</option>
+                    <option ${i.status==='Goal'?'selected':''}>Goal</option>
+                  </select>
+                </td>
+                <td>
+                  <button class="btn btn-danger" onclick="deleteInquiry('${i.id}')">Hapus</button>
+                </td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  `;
+}
+
+function openInquiryModal(){
+  modal(`<h2>Input Inquiry CS</h2>`,
+  `
+  <div class="form-grid">
+    ${field('Tanggal','inqDate','date','',today())}
+    ${field('Nama Customer','inqCustomer','text','')}
+    ${field('Nama Perusahaan','inqCompany','text','')}
+    ${field('Kontak','inqContact','text','')}
+    ${field('Jenis Kegiatan','inqActivity','text','')}
+    ${selectField('Sales','inqSales',SALES)}
+  </div>
+
+  <div class="toolbar" style="margin-top:18px">
+    <button class="btn btn-primary" onclick="saveInquiry()">Simpan</button>
+    <button class="btn btn-soft" onclick="closeModal()">Batal</button>
+  </div>
+  `);
+}
+
+function saveInquiry(){
+  appState.inquiries.unshift({
+    id: uid(),
+    tanggal: $('#inqDate').value,
+    customer: $('#inqCustomer').value,
+    perusahaan: $('#inqCompany').value,
+    kontak: $('#inqContact').value,
+    kegiatan: $('#inqActivity').value,
+    sales: $('#inqSales').value,
+    status: 'Open'
+  });
+
+  saveState();
+  closeModal();
+  renderInquiry();
+  toast('Inquiry tersimpan','Data masuk sistem');
+}
+
+function updateInquiry(id,status){
+  const d = appState.inquiries.find(x=>x.id===id);
+  if(d){
+    d.status = status;
+    saveState();
+    renderInquiry();
+    toast('Update sukses','Status inquiry diperbarui');
+  }
+}
+
+function deleteInquiry(id){
+  if(!confirm('Hapus inquiry?')) return;
+  appState.inquiries = appState.inquiries.filter(x=>x.id!==id);
+  saveState();
+  renderInquiry();
 }
 
 </script>
