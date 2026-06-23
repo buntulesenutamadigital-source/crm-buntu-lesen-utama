@@ -762,7 +762,22 @@ const seedState = () => ({
           <div class="card"><h3>SLA Monitor</h3><small>Target response ${appState.settings.sla} menit.</small><div class="progress" style="margin:18px 0 8px"><span style="width:${Math.min(100, visibleConversations().filter(c=>c.status==='Open').length*20)}%"></span></div><div class="footer-note">Open chat: ${visibleConversations().filter(c=>c.status==='Open').length}. Pending chat: ${visibleConversations().filter(c=>c.status==='Pending').length}.</div></div>
           <div class="card"><h3>Akses Saat Ini</h3><small>${currentUser.role==='admin'?'Admin master dapat melihat semua pipeline, channel, campaign, dan user.':'Sales hanya melihat pipeline dan chat yang ditugaskan kepada dirinya.'}</small><div style="margin-top:16px"><span class="badge orange">${currentUser.name}</span> <span class="badge">${currentUser.role}</span></div></div>
         </div>
-        ${(()=>{ if(currentUser.role!=='admin') return ''; const bySales=SALES.map(s=>{const sp=appState.pipelines.filter(x=>x['Sales Name']===s); const total=sp.length; const won=sp.filter(x=>x.Stage==='Won').length; const est=sp.reduce((a,b)=>a+Number(b['Estimated Value (IDR)']||0),0); const weighted=sp.reduce((a,b)=>a+Number(b['Weighted Value (IDR)']||0),0); const conv=total>0?(won/total):0; return {name:s,total,est,weighted,conv};}); return `<div class="card"><div class="card-head"><div><h3>&#128200; Perbandingan Performa Sales</h3><small>Data Total Opportunities, Estimated Value, Weighted Forecast, dan Conversion Rate per sales &mdash; hanya terlihat oleh Admin Master.</small></div></div><div class="table-wrap"><table class="data-table"><thead><tr><th>Sales</th><th style="text-align:center">Total Opportunities</th><th>Estimated Value</th><th>Weighted Forecast</th><th style="text-align:center">Conversion Rate</th></tr></thead><tbody>${bySales.map(r=>`<tr><td><b>${r.name}</b></td><td style="text-align:center">${r.total}</td><td>${money(r.est)}</td><td>${money(r.weighted)}</td><td style="text-align:center">${percent(r.conv)}</td></tr>`).join('')}</tbody></table></div></div>`; })()}`;
+        ${(()=>{ if(currentUser.role!=='admin') return ''; const months=[...new Set(appState.pipelines.map(p=>getMonth(p.Date)).filter(Boolean))].sort(); return `<div class="card" id="salesPerfCard"><div class="card-head"><div><h3>&#128200; Perbandingan Performa Sales</h3><small>Data Total Opportunities, Estimated Value, Weighted Forecast, dan Conversion Rate per sales &mdash; hanya terlihat oleh Admin Master.</small></div><div class="toolbar"><label style="font-size:12px;font-weight:800;color:#38465f;text-transform:uppercase;letter-spacing:.05em">Sortir Bulan</label><select id="salesPerfMonth" onchange="renderSalesPerfTable()" style="border:1px solid var(--line);background:#fff;border-radius:12px;padding:8px 12px;outline:none;color:var(--text)"><option value="">Semua Bulan</option>${months.map(m=>`<option value="${m}">${m}</option>`).join('')}</select></div></div><div id="salesPerfTableWrap"></div></div>`; })()}`;
+    }
+    function renderSalesPerfTable(){
+      var wrap=document.getElementById('salesPerfTableWrap'); if(!wrap) return;
+      var monthFilter=(document.getElementById('salesPerfMonth')||{}).value||'';
+      var bySales=SALES.map(function(s){
+        var sp=appState.pipelines.filter(function(x){return x['Sales Name']===s;});
+        if(monthFilter) sp=sp.filter(function(x){return getMonth(x.Date)===monthFilter;});
+        var total=sp.length;
+        var won=sp.filter(function(x){return x.Stage==='Won';}).length;
+        var est=sp.reduce(function(a,b){return a+Number(b['Estimated Value (IDR)']||0);},0);
+        var weighted=sp.reduce(function(a,b){return a+Number(b['Weighted Value (IDR)']||0);},0);
+        var conv=total>0?(won/total):0;
+        return {name:s,total:total,est:est,weighted:weighted,conv:conv};
+      });
+      wrap.innerHTML='<div class="table-wrap"><table class="data-table"><thead><tr><th>Sales</th><th style="text-align:center">Total Opportunities</th><th>Estimated Value</th><th>Weighted Forecast</th><th style="text-align:center">Conversion Rate</th></tr></thead><tbody>'+bySales.map(function(r){return '<tr><td><b>'+r.name+'</b></td><td style="text-align:center">'+r.total+'</td><td>'+money(r.est)+'</td><td>'+money(r.weighted)+'</td><td style="text-align:center">'+percent(r.conv)+'</td></tr>';}).join('')+'</tbody></table></div>';
     }
     function kpi(label,value,note,color){return `<div class="card kpi"><div class="label">${label}</div><div class="value">${value}</div><div class="note">${note}</div><span class="badge ${color}">Live</span></div>`}
     function barStage(){const pipes=visiblePipelines(); const max=Math.max(1,...STAGES.map(st=>pipes.filter(p=>p.Stage===st).length)); return `<div class="bar-list">${STAGES.map(st=>{const c=pipes.filter(p=>p.Stage===st).length;return `<div class="bar-row"><b>${st}</b><div class="bar-track"><div class="bar-fill" style="width:${c/max*100}%"></div></div><span>${c}</span></div>`}).join('')}</div>`}
@@ -1529,6 +1544,7 @@ waitFor(function() { return typeof renderDashboard === 'function'; }, 80, functi
   var _rd = window.renderDashboard;
   window.renderDashboard = function() {
     _rd();
+    if (typeof window.renderSalesPerfTable === 'function') { setTimeout(window.renderSalesPerfTable, 0); }
     if (!window.appState || !window.currentUser) return;
     var today_ = new Date(); today_.setHours(0, 0, 0, 0);
     var esc = (typeof escapeHTML === 'function') ? escapeHTML : function(s) { return String(s); };
