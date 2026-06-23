@@ -930,17 +930,51 @@ const seedState = () => ({
     function saveCampaign(){if(!$('#mName').value.trim())return; appState.campaigns.unshift({id:uid(),name:$('#mName').value,owner:$('#mOwner').value,segment:$('#mSegment').value,channel:$('#mChannel').value,recipients:$('#mRecipients').value||0,status:'Draft',openRate:0,message:$('#mMessage').value}); saveState(); closeModal(); renderMarketing(); toast('Campaign tersimpan','Campaign masuk status draft.')}
 
     function renderReports(){
-      const p=visiblePipelines(); const bySales=SALES.map(s=>({name:s,total:appState.pipelines.filter(x=>x['Sales Name']===s).length,won:appState.pipelines.filter(x=>x['Sales Name']===s&&x.Stage==='Won').length,lost:appState.pipelines.filter(x=>x['Sales Name']===s&&x.Stage==='Lost').length,value:appState.pipelines.filter(x=>x['Sales Name']===s).reduce((a,b)=>a+Number(b['Estimated Value (IDR)']||0),0),weighted:appState.pipelines.filter(x=>x['Sales Name']===s).reduce((a,b)=>a+Number(b['Weighted Value (IDR)']||0),0)}));
-      const bySalesFiltered=bySales.filter(r=>currentUser.role==='admin'||r.name===currentUser.salesName);
-      function barSales(label,valFn,fmtFn){
-        const vals=bySalesFiltered.map(r=>valFn(r)); const max=Math.max(1,...vals);
-        return `<div class="card"><div class="card-head"><div><h3>${label} per Sales</h3><small>${currentUser.role==='admin'?'Perbandingan semua sales':'Performa kamu'}</small></div></div><div class="bar-list">${bySalesFiltered.map((r,i)=>`<div class="bar-row"><b style="min-width:64px">${r.name}</b><div class="bar-track"><div class="bar-fill" style="width:${vals[i]/max*100}%"></div></div><span>${fmtFn(vals[i])}</span></div>`).join('')}</div></div>`;}
+      // Kumpulkan semua bulan unik dari pipeline
+      const allMonths=[...new Set(appState.pipelines.map(p=>getMonth(p.Date)).filter(Boolean))].sort();
       $('#reports').innerHTML=
-        `<div class="grid grid-2"><div class="card"><div class="card-head"><div><h3>Stage Analytics</h3><small>Distribusi pipeline berdasarkan tahap.</small></div></div>${barStage()}</div><div class="card"><div class="card-head"><div><h3>Service Type Analytics</h3><small>Peluang berdasarkan layanan.</small></div></div>${barServices(p)}</div></div>`+
-        `<div class="card"><div class="card-head"><div><h3>Sales Performance</h3><small>Admin melihat semua sales. Sales melihat konteks performa dirinya.</small></div></div><div class="table-wrap"><table class="data-table"><thead><tr><th>Sales</th><th>Total Opp</th><th>Won</th><th>Lost</th><th>Estimated Value</th><th>Weighted Forecast</th><th>Conversion Rate</th></tr></thead><tbody>${bySalesFiltered.map(r=>`<tr><td><b>${r.name}</b></td><td>${r.total}</td><td>${r.won}</td><td>${r.lost}</td><td>${money(r.value)}</td><td>${money(r.weighted)}</td><td>${percent(r.total>0?r.won/r.total:0)}</td></tr>`).join('')}</tbody></table></div></div>`+
-        `<div class="grid grid-2">${barSales('Total Opportunities',r=>r.total,v=>v)}${barSales('Won',r=>r.won,v=>v)}</div>`+
-        `<div class="grid grid-2">${barSales('Estimated Value',r=>r.value,v=>money(v))}${barSales('Weighted Forecast',r=>r.weighted,v=>money(v))}</div>`+
-        `<div class="grid grid-2">${barSales('Conversion Rate',r=>r.total>0?r.won/r.total:0,v=>percent(v))}${barSales('Lost',r=>r.lost,v=>v)}</div>`;
+        `<div class="card" style="padding:14px 20px">
+          <div style="display:flex;align-items:center;gap:14px;flex-wrap:wrap">
+            <b style="font-size:14px;color:#34415a">     Sortir Bulan:</b>
+            <select id="reportMonthFilter" onchange="renderReportsContent()" style="border:1px solid var(--line);background:#fff;border-radius:12px;padding:8px 14px;outline:none;color:var(--text);font-weight:700">
+              <option value="">Semua Bulan</option>
+              ${allMonths.map(m=>`<option value="${m}">${m}</option>`).join('')}
+            </select>
+            <span style="font-size:12px;color:var(--muted)">Filter berlaku untuk semua tabel & chart di bawah</span>
+          </div>
+        </div>
+        <div id="reportsContent"></div>`;
+      renderReportsContent();
+    }
+    function renderReportsContent(){
+      const mf=(document.getElementById('reportMonthFilter')||{}).value||'';
+      // Filter pipelines berdasarkan bulan terpilih
+      const allP=visiblePipelines();
+      const p=mf ? allP.filter(x=>getMonth(x.Date)===mf) : allP;
+      const allPipeForSales=mf ? appState.pipelines.filter(x=>getMonth(x.Date)===mf) : appState.pipelines;
+      const bySales=SALES.map(s=>({
+        name:s,
+        total:allPipeForSales.filter(x=>x['Sales Name']===s).length,
+        won:allPipeForSales.filter(x=>x['Sales Name']===s&&x.Stage==='Won').length,
+        lost:allPipeForSales.filter(x=>x['Sales Name']===s&&x.Stage==='Lost').length,
+        value:allPipeForSales.filter(x=>x['Sales Name']===s).reduce((a,b)=>a+Number(b['Estimated Value (IDR)']||0),0),
+        weighted:allPipeForSales.filter(x=>x['Sales Name']===s).reduce((a,b)=>a+Number(b['Weighted Value (IDR)']||0),0)
+      }));
+      const bySalesFiltered=bySales.filter(r=>currentUser.role==='admin'||r.name===currentUser.salesName);
+      function barSalesLocal(label,valFn,fmtFn){
+        const vals=bySalesFiltered.map(r=>valFn(r)); const max=Math.max(1,...vals);
+        return `<div class="card"><div class="card-head"><div><h3>${label} per Sales</h3><small>${mf?'Bulan: '+mf:(currentUser.role==='admin'?'Semua bulan':'Performa kamu')}</small></div></div><div class="bar-list">${bySalesFiltered.map((r,i)=>`<div class="bar-row"><b style="min-width:64px">${r.name}</b><div class="bar-track"><div class="bar-fill" style="width:${vals[i]/max*100}%"></div></div><span>${fmtFn(vals[i])}</span></div>`).join('')}</div></div>`;}
+      function barStageFiltered(){const max=Math.max(1,...STAGES.map(st=>p.filter(x=>x.Stage===st).length)); return `<div class="bar-list">${STAGES.map(st=>{const c=p.filter(x=>x.Stage===st).length;return `<div class="bar-row"><b>${st}</b><div class="bar-track"><div class="bar-fill" style="width:${c/max*100}%"></div></div><span>${c}</span></div>`}).join('')}</div>`;}
+      function barServicesFiltered(){const max=Math.max(1,...SERVICE_TYPES.map(st=>p.filter(x=>x['Service Type']===st).length)); return `<div class="bar-list">${SERVICE_TYPES.map(st=>{const c=p.filter(x=>x['Service Type']===st).length;return `<div class="bar-row"><b>${st}</b><div class="bar-track"><div class="bar-fill" style="width:${c/max*100}%"></div></div><span>${c}</span></div>`}).join('')}</div>`;}
+      const labelBulan=mf?` &mdash; Bulan: <b>${mf}</b>`:' &mdash; Semua Bulan';
+      const wrap=document.getElementById('reportsContent');
+      if(!wrap) return;
+      wrap.innerHTML=
+        `<div class="grid grid-2"><div class="card"><div class="card-head"><div><h3>Stage Analytics</h3><small>Distribusi pipeline berdasarkan tahap${labelBulan}</small></div></div>${barStageFiltered()}</div><div class="card"><div class="card-head"><div><h3>Service Type Analytics</h3><small>Peluang berdasarkan layanan${labelBulan}</small></div></div>${barServicesFiltered()}</div></div>`+
+        `<div class="card"><div class="card-head"><div><h3>Sales Performance</h3><small>Admin melihat semua sales. Sales melihat konteks performa dirinya${labelBulan}</small></div></div><div class="table-wrap"><table class="data-table"><thead><tr><th>Sales</th><th>Total Opp</th><th>Won</th><th>Lost</th><th>Estimated Value</th><th>Weighted Forecast</th><th>Conversion Rate</th></tr></thead><tbody>${bySalesFiltered.map(r=>`<tr><td><b>${r.name}</b></td><td>${r.total}</td><td>${r.won}</td><td>${r.lost}</td><td>${money(r.value)}</td><td>${money(r.weighted)}</td><td>${percent(r.total>0?r.won/r.total:0)}</td></tr>`).join('')}</tbody></table></div></div>`+
+        `<div class="grid grid-2">${barSalesLocal('Total Opportunities',r=>r.total,v=>v)}${barSalesLocal('Won',r=>r.won,v=>v)}</div>`+
+        `<div class="grid grid-2">${barSalesLocal('Estimated Value',r=>r.value,v=>money(v))}${barSalesLocal('Weighted Forecast',r=>r.weighted,v=>money(v))}</div>`+
+        `<div class="grid grid-2">${barSalesLocal('Conversion Rate',r=>r.total>0?r.won/r.total:0,v=>percent(v))}${barSalesLocal('Lost',r=>r.lost,v=>v)}</div>`;
     }
     function barServices(rows){const max=Math.max(1,...SERVICE_TYPES.map(st=>rows.filter(p=>p['Service Type']===st).length)); return `<div class="bar-list">${SERVICE_TYPES.map(st=>{const c=rows.filter(p=>p['Service Type']===st).length;return `<div class="bar-row"><b>${st}</b><div class="bar-track"><div class="bar-fill" style="width:${c/max*100}%"></div></div><span>${c}</span></div>`}).join('')}</div>`}
 
@@ -1410,7 +1444,7 @@ document.addEventListener('DOMContentLoaded', function() { applyDark(isDark()); 
     '[data-dark="1"] .modal { background: #1e293b !important; color: #e0e0e0 !important; }',
     '.kbd { display:inline-block; background:#e2e8f0; color:#333; border:1px solid #94a3b8; border-radius:4px; padding:1px 6px; font-size:12px; font-family:monospace; }',
     '[data-dark="1"] .kbd { background:#334155; color:#e0e0e0; border-color:#64748b; }',
-    '#globalSearchInput { padding:6px 12px; border-radius:6px; border:1px solid #cbd5e1; font-size:13px; width:200px; outline:none; }',
+    '#globalSearchInput { padding:8px 14px; border-radius:10px; border:2px solid #F04B2F; font-size:13px; width:230px; outline:none; background:#fff; box-shadow:0 2px 8px rgba(240,75,47,.12); }',
     '#globalSearchResult { position:fixed; z-index:9999; background:#fff; border:1px solid #e2e8f0; border-radius:8px; box-shadow:0 4px 16px rgba(0,0,0,0.12); min-width:260px; max-height:340px; overflow-y:auto; }',
     '[data-dark="1"] #globalSearchResult { background:#1e293b; border-color:#334155; color:#e0e0e0; }',
     '.gsr-item { display:flex; flex-direction:column; gap:2px; padding:8px 14px; cursor:pointer; border-bottom:1px solid #f1f5f9; }',
@@ -1458,7 +1492,7 @@ window.doGlobalSearch = function(q) {
   });
   (state.conversations || []).forEach(function(c) {
     if (JSON.stringify(c).toLowerCase().indexOf(term) !== -1)
-      hits.push({ type: 'Conversation', label: c.customer || '-', sub: c.channel || '', view: 'conversations' });
+      hits.push({ type: 'Conversation', label: c.customer || '-', sub: c.channel || '', view: 'inbox' });
   });
   (state.inquiries || []).forEach(function(inq) {
     if (JSON.stringify(inq).toLowerCase().indexOf(term) !== -1)
@@ -1494,6 +1528,11 @@ document.addEventListener('click', function(e) {
 document.addEventListener('keydown', function(e) {
   var tag = (e.target.tagName || '').toUpperCase();
   if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
+  if ((e.ctrlKey || e.metaKey) && (e.key === 'f' || e.key === 'F')) {
+    var inp = document.getElementById('globalSearchInput');
+    if (inp) { e.preventDefault(); inp.focus(); inp.select(); }
+    return;
+  }
   if (e.key === 'Escape') {
     if (typeof closeModal === 'function') closeModal();
     var res = document.getElementById('globalSearchResult');
@@ -1526,7 +1565,7 @@ function injectTopbarExtras() {
   // Use createElement to avoid any quote nesting issues
   var inp = document.createElement('input');
   inp.id = 'globalSearchInput';
-  inp.placeholder = '\ud83d\udd0d Cari di CRM...';
+  inp.placeholder = '\ud83d\udd0d Cari pipeline, customer, chat...';
   inp.autocomplete = 'off';
   inp.addEventListener('input', function() { window.doGlobalSearch(this.value); });
   var dropDiv = document.createElement('div');
@@ -1576,7 +1615,7 @@ waitFor(function() { return typeof renderReports === 'function'; }, 80, function
   window.renderReports = function() {
     _rr();
     setTimeout(function() {
-      var wrap = document.getElementById('reports');
+      var wrap = document.getElementById('reportsContent') || document.getElementById('reports');
       if (!wrap || !window.appState) return;
       if (document.getElementById('bluTrendChart')) return;
       var pipes = (window.appState.pipelines || []);
@@ -1609,7 +1648,9 @@ waitFor(function() { return typeof renderReports === 'function'; }, 80, function
       card.id = 'bluTrendChart';
       card.innerHTML = "<div class='card-head'><div><h3>Monthly Trend</h3><small>6 bulan terakhir | <span style='color:#3b82f6'>\u25a0</span> Total &nbsp;<span style='color:#22c55e'>\u25a0</span> Won</small></div></div>" +
         "<div style='display:flex;gap:8px;align-items:flex-end;padding:12px 0'>" + bars + "</div>";
-      wrap.insertBefore(card, wrap.firstChild);
+      var reportsContentEl = document.getElementById('reportsContent');
+      var insertTarget = reportsContentEl || wrap;
+      insertTarget.insertBefore(card, insertTarget.firstChild);
     }, 150);
   };
 });
