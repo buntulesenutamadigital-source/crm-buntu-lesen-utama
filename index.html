@@ -365,7 +365,11 @@ function visibleInquiries(){
 
 function renderInquiry(){
   if(!$('#inquiry')) return;
-  const data = visibleInquiries() || [];
+  const allData = visibleInquiries() || [];
+  const inqSalesF = $('#inqSalesFilter')?.value || '';
+  const inqMonthF = $('#inqMonthFilter')?.value || '';
+  const data = allData.filter(i => (!inqSalesF || i.sales === inqSalesF) && (!inqMonthF || getMonth(i.tanggal) === inqMonthF));
+  const inqMonths = [...new Set(allData.map(i => getMonth(i.tanggal)).filter(Boolean))].sort();
 
   $('#inquiry').innerHTML = `
     <div class="grid grid-4">
@@ -381,7 +385,10 @@ function renderInquiry(){
           <h3>Inquiry CS</h3>
           <small>Admin input, sales update status</small>
         </div>
-        <button class="btn btn-primary" onclick="openInquiryModal()">Tambah Inquiry</button>
+        <div class="toolbar">
+          ${currentUser.role==='admin' ? `<select id="inqSalesFilter" onchange="renderInquiry()"><option value="">Semua Sales</option>${SALES.map(s=>`<option value="${s}" ${inqSalesF===s?'selected':''}>${s}</option>`).join('')}</select><select id="inqMonthFilter" onchange="renderInquiry()"><option value="">Semua Bulan</option>${inqMonths.map(m=>`<option value="${m}" ${inqMonthF===m?'selected':''}>${m}</option>`).join('')}</select>` : ''}
+          <button class="btn btn-primary" onclick="openInquiryModal()">Tambah Inquiry</button>
+        </div>
       </div>
 
       <div class="table-wrap">
@@ -844,11 +851,11 @@ const seedState = () => ({
           ${kpi('Forecast', money(pipes.reduce((s,p)=>s+calcWeightedValue(p),0)), 'Weighted value', 'violet')}
         </div>
         <div class="card"><div class="card-head"><div><h3>Pipeline Board</h3><small>Stage dari lead sampai closing. </small></div><div class="toolbar"><button class="btn btn-primary" onclick="openPipelineModal()">Tambah Opportunity</button><button class="btn btn-soft" onclick="exportPipelineCSV()">Export CSV</button></div></div><div class="pipeline-board">${STAGES.map(stage=>stageColumn(stage,pipes.filter(p=>p.Stage===stage))).join('')}</div></div>
-        <div class="card"><div class="card-head"><div><h3>Pipeline Table</h3><small>Kolom mengikuti struktur sales pipeline.</small></div><div class="toolbar"><input id="pipelineSearch" placeholder="Cari customer, service, PIC" oninput="filterPipelineTable()"><select id="pipelineStageFilter" onchange="filterPipelineTable()"><option value="">Semua Stage</option>${STAGES.map(s=>`<option>${s}</option>`).join('')}</select></div></div><div id="pipelineTable">${pipelineTableHTML(pipes)}</div></div>`;
+        <div class="card"><div class="card-head"><div><h3>Pipeline Table</h3><small>Kolom mengikuti struktur sales pipeline.</small></div><div class="toolbar"><input id="pipelineSearch" placeholder="Cari customer, service, PIC" oninput="filterPipelineTable()"><select id="pipelineStageFilter" onchange="filterPipelineTable()"><option value="">Semua Stage</option>${STAGES.map(s=>`<option>${s}</option>`).join('')}</select>${currentUser.role==='admin'?`<select id="pipelineSalesFilter" onchange="filterPipelineTable()"><option value="">Semua Sales</option>${SALES.map(s=>`<option>${s}</option>`).join('')}</select><select id="pipelineMonthFilter" onchange="filterPipelineTable()"><option value="">Semua Bulan</option>${[...new Set(appState.pipelines.map(p=>getMonth(p.Date)).filter(Boolean))].sort().map(m=>`<option>${m}</option>`).join('')}</select>`:''}</div></div><div id="pipelineTable">${pipelineTableHTML(pipes)}</div></div>`;
     }
     function stageColumn(stage,items){return `<div class="stage-col"><div class="stage-title"><span>${stage}</span><span class="badge">${items.length}</span></div>${items.map(p=>`<div class="deal-card"><b>${escapeHTML(p['Customer Name']||'-')}</b><span>${escapeHTML(p['Opportunity Name']||p['Service Type']||'-')}</span><div class="row"><strong>${money(p['Estimated Value (IDR)'])}</strong><span>${p['Sales Name']}</span></div><div style="margin-top:10px;display:flex;gap:8px"><button class="btn btn-soft" onclick="editPipeline('${p.id}')">Edit</button><button class="btn btn-danger" onclick="deletePipeline('${p.id}')">Hapus</button></div></div>`).join('') || '<div class="empty" style="padding:18px">Kosong</div>'}</div>`}
     function pipelineTableHTML(rows){if(!rows.length)return '<div class="empty">Belum ada data pipeline. Klik Tambah Opportunity untuk mulai input.</div>'; const today_=new Date(); today_.setHours(0,0,0,0); return `<div class="table-wrap"><table class="data-table"><thead><tr>${PIPELINE_HEADERS.map(h=>`<th>${h}</th>`).join('')}<th>Aksi</th></tr></thead><tbody>${rows.map(p=>`<tr>${PIPELINE_HEADERS.map(h=>{if(h==='Expected Close Date'){const dv=p[h]||''; const isOverdue=dv&&(new Date(dv)<today_)&&p.Stage!=='Won'&&p.Stage!=='Lost'; return `<td style="${isOverdue?'background:#fee2e2;color:#b91c1c;font-weight:600;':''}">${escapeHTML(dv)}</td>`;}return `<td>${h.includes('Value')?money(p[h]):escapeHTML(p[h]??'')}</td>`;}).join('')}<td><button class="btn btn-soft" onclick="editPipeline('${p.id}')">Edit</button></td></tr>`).join('')}</tbody></table></div>`}
-    function filterPipelineTable(){const q=$('#pipelineSearch').value.toLowerCase(); const st=$('#pipelineStageFilter').value; const rows=visiblePipelines().filter(p=>(!st||p.Stage===st) && JSON.stringify(p).toLowerCase().includes(q)); $('#pipelineTable').innerHTML=pipelineTableHTML(rows)}
+    function filterPipelineTable(){const q=$('#pipelineSearch').value.toLowerCase(); const st=$('#pipelineStageFilter').value; const sf=$('#pipelineSalesFilter')?.value||''; const mf=$('#pipelineMonthFilter')?.value||''; const rows=visiblePipelines().filter(p=>(!st||p.Stage===st)&&(!sf||p['Sales Name']===sf)&&(!mf||getMonth(p.Date)===mf)&&JSON.stringify(p).toLowerCase().includes(q)); $('#pipelineTable').innerHTML=pipelineTableHTML(rows)}
     function openPipelineModal(id=null){
       const p=id?appState.pipelines.find(x=>x.id===id):null;
       const ownerValue=p?.['Sales Name'] || (currentUser.role==='admin'?'Annisa':currentUser.salesName);
@@ -908,8 +915,17 @@ const seedState = () => ({
     function saveCampaign(){if(!$('#mName').value.trim())return; appState.campaigns.unshift({id:uid(),name:$('#mName').value,owner:$('#mOwner').value,segment:$('#mSegment').value,channel:$('#mChannel').value,recipients:$('#mRecipients').value||0,status:'Draft',openRate:0,message:$('#mMessage').value}); saveState(); closeModal(); renderMarketing(); toast('Campaign tersimpan','Campaign masuk status draft.')}
 
     function renderReports(){
-      const p=visiblePipelines(); const bySales=SALES.map(s=>({name:s,total:appState.pipelines.filter(x=>x['Sales Name']===s).length,won:appState.pipelines.filter(x=>x['Sales Name']===s&&x.Stage==='Won').length,value:appState.pipelines.filter(x=>x['Sales Name']===s).reduce((a,b)=>a+Number(b['Estimated Value (IDR)']||0),0)}));
-      $('#reports').innerHTML=`<div class="grid grid-2"><div class="card"><div class="card-head"><div><h3>Stage Analytics</h3><small>Distribusi pipeline berdasarkan tahap.</small></div></div>${barStage()}</div><div class="card"><div class="card-head"><div><h3>Service Type Analytics</h3><small>Peluang berdasarkan layanan.</small></div></div>${barServices(p)}</div></div><div class="card"><div class="card-head"><div><h3>Sales Performance</h3><small>Admin melihat semua sales. Sales melihat konteks performa dirinya.</small></div></div><div class="table-wrap"><table class="data-table"><thead><tr><th>Sales</th><th>Total Opp</th><th>Won</th><th>Estimated Value</th></tr></thead><tbody>${bySales.filter(r=>currentUser.role==='admin'||r.name===currentUser.salesName).map(r=>`<tr><td><b>${r.name}</b></td><td>${r.total}</td><td>${r.won}</td><td>${money(r.value)}</td></tr>`).join('')}</tbody></table></div></div>`;
+      const p=visiblePipelines(); const bySales=SALES.map(s=>({name:s,total:appState.pipelines.filter(x=>x['Sales Name']===s).length,won:appState.pipelines.filter(x=>x['Sales Name']===s&&x.Stage==='Won').length,lost:appState.pipelines.filter(x=>x['Sales Name']===s&&x.Stage==='Lost').length,value:appState.pipelines.filter(x=>x['Sales Name']===s).reduce((a,b)=>a+Number(b['Estimated Value (IDR)']||0),0),weighted:appState.pipelines.filter(x=>x['Sales Name']===s).reduce((a,b)=>a+Number(b['Weighted Value (IDR)']||0),0)}));
+      const bySalesFiltered=bySales.filter(r=>currentUser.role==='admin'||r.name===currentUser.salesName);
+      function barSales(label,valFn,fmtFn){
+        const vals=bySalesFiltered.map(r=>valFn(r)); const max=Math.max(1,...vals);
+        return `<div class="card"><div class="card-head"><div><h3>${label} per Sales</h3><small>${currentUser.role==='admin'?'Perbandingan semua sales':'Performa kamu'}</small></div></div><div class="bar-list">${bySalesFiltered.map((r,i)=>`<div class="bar-row"><b style="min-width:64px">${r.name}</b><div class="bar-track"><div class="bar-fill" style="width:${vals[i]/max*100}%"></div></div><span>${fmtFn(vals[i])}</span></div>`).join('')}</div></div>`;}
+      $('#reports').innerHTML=
+        `<div class="grid grid-2"><div class="card"><div class="card-head"><div><h3>Stage Analytics</h3><small>Distribusi pipeline berdasarkan tahap.</small></div></div>${barStage()}</div><div class="card"><div class="card-head"><div><h3>Service Type Analytics</h3><small>Peluang berdasarkan layanan.</small></div></div>${barServices(p)}</div></div>`+
+        `<div class="card"><div class="card-head"><div><h3>Sales Performance</h3><small>Admin melihat semua sales. Sales melihat konteks performa dirinya.</small></div></div><div class="table-wrap"><table class="data-table"><thead><tr><th>Sales</th><th>Total Opp</th><th>Won</th><th>Lost</th><th>Estimated Value</th><th>Weighted Forecast</th><th>Conversion Rate</th></tr></thead><tbody>${bySalesFiltered.map(r=>`<tr><td><b>${r.name}</b></td><td>${r.total}</td><td>${r.won}</td><td>${r.lost}</td><td>${money(r.value)}</td><td>${money(r.weighted)}</td><td>${percent(r.total>0?r.won/r.total:0)}</td></tr>`).join('')}</tbody></table></div></div>`+
+        `<div class="grid grid-2">${barSales('Total Opportunities',r=>r.total,v=>v)}${barSales('Won',r=>r.won,v=>v)}</div>`+
+        `<div class="grid grid-2">${barSales('Estimated Value',r=>r.value,v=>money(v))}${barSales('Weighted Forecast',r=>r.weighted,v=>money(v))}</div>`+
+        `<div class="grid grid-2">${barSales('Conversion Rate',r=>r.total>0?r.won/r.total:0,v=>percent(v))}${barSales('Lost',r=>r.lost,v=>v)}</div>`;
     }
     function barServices(rows){const max=Math.max(1,...SERVICE_TYPES.map(st=>rows.filter(p=>p['Service Type']===st).length)); return `<div class="bar-list">${SERVICE_TYPES.map(st=>{const c=rows.filter(p=>p['Service Type']===st).length;return `<div class="bar-row"><b>${st}</b><div class="bar-track"><div class="bar-fill" style="width:${c/max*100}%"></div></div><span>${c}</span></div>`}).join('')}</div>`}
 
@@ -980,7 +996,11 @@ function visibleInquiries(){
 
 function renderInquiry(){
   if(!$('#inquiry')) return;
-  const data = visibleInquiries() || [];
+  const allData = visibleInquiries() || [];
+  const inqSalesF = $('#inqSalesFilter')?.value || '';
+  const inqMonthF = $('#inqMonthFilter')?.value || '';
+  const data = allData.filter(i => (!inqSalesF || i.sales === inqSalesF) && (!inqMonthF || getMonth(i.tanggal) === inqMonthF));
+  const inqMonths = [...new Set(allData.map(i => getMonth(i.tanggal)).filter(Boolean))].sort();
 
   $('#inquiry').innerHTML = `
     <div class="grid grid-4">
@@ -996,7 +1016,10 @@ function renderInquiry(){
           <h3>Inquiry CS</h3>
           <small>Admin input, sales update status</small>
         </div>
-        <button class="btn btn-primary" onclick="openInquiryModal()">Tambah Inquiry</button>
+        <div class="toolbar">
+          ${currentUser.role==='admin' ? `<select id="inqSalesFilter" onchange="renderInquiry()"><option value="">Semua Sales</option>${SALES.map(s=>`<option value="${s}" ${inqSalesF===s?'selected':''}>${s}</option>`).join('')}</select><select id="inqMonthFilter" onchange="renderInquiry()"><option value="">Semua Bulan</option>${inqMonths.map(m=>`<option value="${m}" ${inqMonthF===m?'selected':''}>${m}</option>`).join('')}</select>` : ''}
+          <button class="btn btn-primary" onclick="openInquiryModal()">Tambah Inquiry</button>
+        </div>
       </div>
 
       <div class="table-wrap">
@@ -1323,6 +1346,474 @@ function deleteInquiry(id){
 
   });
 }());
+</script>
+
+
+<script>
+/* ============================================================
+   BLU CRM Enhancement Pack v2 - injected, no original edits
+   ============================================================ */
+
+// Utility: wait for a global to exist, then run callback
+function waitFor(check, intervalMs, cb) {
+  if (check()) { cb(); return; }
+  var t = setInterval(function() {
+    if (check()) { clearInterval(t); cb(); }
+  }, intervalMs);
+}
+
+// ─── 1. DARK MODE ───────────────────────────────────────────
+var BLU_DARK_KEY = 'blu_dark_mode';
+function isDark() { return localStorage.getItem(BLU_DARK_KEY) === '1'; }
+function applyDark(on) {
+  localStorage.setItem(BLU_DARK_KEY, on ? '1' : '0');
+  if (on) {
+    document.documentElement.setAttribute('data-dark', '1');
+  } else {
+    document.documentElement.removeAttribute('data-dark');
+  }
+  var btn = document.getElementById('darkToggleBtn');
+  if (btn) btn.textContent = on ? '\u2600\ufe0f' : '\ud83c\udf19';
+}
+// Apply on load
+document.addEventListener('DOMContentLoaded', function() { applyDark(isDark()); });
+(function(){ applyDark(isDark()); })();
+
+// Inject dark mode CSS
+(function(){
+  var style = document.createElement('style');
+  style.textContent = [
+    '[data-dark="1"] { --bg: #1a1a2e; --card: #16213e; --border: #0f3460; --text: #e0e0e0; --muted: #a0a0b0; }',
+    '[data-dark="1"] body { background: var(--bg,#1a1a2e) !important; color: var(--text,#e0e0e0) !important; }',
+    '[data-dark="1"] .card { background: var(--card,#16213e) !important; border-color: var(--border,#0f3460) !important; color: var(--text,#e0e0e0) !important; }',
+    '[data-dark="1"] .sidebar { background: #111827 !important; }',
+    '[data-dark="1"] .topbar { background: #111827 !important; border-color: #0f3460 !important; }',
+    '[data-dark="1"] table thead th { background: #0f3460 !important; color: #e0e0e0 !important; }',
+    '[data-dark="1"] table tbody tr:hover { background: #1e3a5f !important; }',
+    '[data-dark="1"] input, [data-dark="1"] select, [data-dark="1"] textarea { background: #1e293b !important; color: #e0e0e0 !important; border-color: #334155 !important; }',
+    '[data-dark="1"] .modal-backdrop { background: rgba(0,0,0,0.75) !important; }',
+    '[data-dark="1"] .modal { background: #1e293b !important; color: #e0e0e0 !important; }',
+    '.kbd { display:inline-block; background:#e2e8f0; color:#333; border:1px solid #94a3b8; border-radius:4px; padding:1px 6px; font-size:12px; font-family:monospace; }',
+    '[data-dark="1"] .kbd { background:#334155; color:#e0e0e0; border-color:#64748b; }',
+    '#globalSearchInput { padding:6px 12px; border-radius:6px; border:1px solid #cbd5e1; font-size:13px; width:200px; outline:none; }',
+    '#globalSearchResult { position:fixed; z-index:9999; background:#fff; border:1px solid #e2e8f0; border-radius:8px; box-shadow:0 4px 16px rgba(0,0,0,0.12); min-width:260px; max-height:340px; overflow-y:auto; }',
+    '[data-dark="1"] #globalSearchResult { background:#1e293b; border-color:#334155; color:#e0e0e0; }',
+    '.gsr-item { display:flex; flex-direction:column; gap:2px; padding:8px 14px; cursor:pointer; border-bottom:1px solid #f1f5f9; }',
+    '.gsr-item:hover { background:#f8fafc; }',
+    '[data-dark="1"] .gsr-item:hover { background:#0f3460; }',
+    '.blu-overdue-banner { background:#fef2f2; border:1px solid #fca5a5; border-radius:8px; padding:10px 16px; margin-bottom:14px; color:#b91c1c; font-size:13px; display:flex; align-items:center; gap:8px; }',
+    '[data-dark="1"] .blu-overdue-banner { background:#3f0f0f; border-color:#7f1d1d; color:#fca5a5; }',
+    '.priority-badge { display:inline-block; border-radius:4px; padding:1px 7px; font-size:11px; font-weight:600; }',
+    '.priority-high { background:#fee2e2; color:#b91c1c; }',
+    '.priority-medium { background:#fef9c3; color:#92400e; }',
+    '.priority-low { background:#dcfce7; color:#166534; }',
+    '[data-dark="1"] .priority-high { background:#7f1d1d; color:#fca5a5; }',
+    '[data-dark="1"] .priority-medium { background:#451a03; color:#fcd34d; }',
+    '[data-dark="1"] .priority-low { background:#052e16; color:#86efac; }',
+  ].join('\n');
+  document.head.appendChild(style);
+})();
+
+// ─── 2. GLOBAL SEARCH ──────────────────────────────────────
+window.bluSearchGo = function(el) {
+  var view = (typeof el === 'string') ? el : (el.dataset ? el.dataset.view : el);
+  if (typeof setPage === 'function') setPage(view);
+  var r = document.getElementById('globalSearchResult');
+  var inp = document.getElementById('globalSearchInput');
+  if (r) r.style.display = 'none';
+  if (inp) inp.value = '';
+};
+
+window.doGlobalSearch = function(q) {
+  var res = document.getElementById('globalSearchResult');
+  if (!res) return;
+  q = (q || '').trim().toLowerCase();
+  if (!q) { res.style.display = 'none'; return; }
+  var esc = (typeof escapeHTML === 'function') ? escapeHTML : function(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); };
+  var hits = [];
+  var state = window.appState || {};
+  var term = q;
+  (state.pipelines || []).forEach(function(p) {
+    if (JSON.stringify(p).toLowerCase().indexOf(term) !== -1)
+      hits.push({ type: 'Pipeline', label: p['Customer Name'] || p.customer || '-', sub: p.Stage || '', view: 'pipeline' });
+  });
+  (state.customers || []).forEach(function(c) {
+    if (JSON.stringify(c).toLowerCase().indexOf(term) !== -1)
+      hits.push({ type: 'Customer', label: c.name || c['Customer Name'] || '-', sub: c.phone || '', view: 'customers' });
+  });
+  (state.conversations || []).forEach(function(c) {
+    if (JSON.stringify(c).toLowerCase().indexOf(term) !== -1)
+      hits.push({ type: 'Conversation', label: c.customer || '-', sub: c.channel || '', view: 'conversations' });
+  });
+  (state.inquiries || []).forEach(function(inq) {
+    if (JSON.stringify(inq).toLowerCase().indexOf(term) !== -1)
+      hits.push({ type: 'Inquiry', label: inq.customer || '-', sub: inq.kegiatan || '', view: 'inquiry' });
+  });
+  if (!hits.length) {
+    res.innerHTML = "<div style='padding:10px;color:#888;font-size:13px;'>Tidak ada hasil untuk <b>" + esc(q) + "</b>.</div>";
+  } else {
+    // NOTE: all event attr inside double-quoted JS strings use single quotes
+    res.innerHTML = hits.slice(0, 12).map(function(h) {
+      return "<div class='gsr-item' data-view='" + esc(h.view) + "' onclick='window.bluSearchGo(this)'>" +
+        "<span class='badge' style='font-size:11px'>" + esc(h.type) + "</span>" +
+        "<b style='font-size:13px'>" + esc(h.label) + "</b>" +
+        "<span style='color:#888;font-size:12px'>" + esc(h.sub) + "</span></div>";
+    }).join('');
+  }
+  var inp2 = document.getElementById('globalSearchInput');
+  if (inp2) {
+    var rect = inp2.getBoundingClientRect();
+    res.style.top = (rect.bottom + 6) + 'px';
+    res.style.left = rect.left + 'px';
+  }
+  res.style.display = 'block';
+};
+
+document.addEventListener('click', function(e) {
+  var res = document.getElementById('globalSearchResult');
+  var inp = document.getElementById('globalSearchInput');
+  if (res && !res.contains(e.target) && e.target !== inp) res.style.display = 'none';
+});
+
+// ─── 3. KEYBOARD SHORTCUTS ─────────────────────────────────
+document.addEventListener('keydown', function(e) {
+  var tag = (e.target.tagName || '').toUpperCase();
+  if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
+  if (e.key === 'Escape') {
+    if (typeof closeModal === 'function') closeModal();
+    var res = document.getElementById('globalSearchResult');
+    if (res) res.style.display = 'none';
+  }
+  if (!e.ctrlKey && !e.metaKey && !e.altKey) {
+    if (e.key === 'n' || e.key === 'N') {
+      if (typeof setPage === 'function') setPage('pipeline');
+      setTimeout(function() { if (typeof openPipelineModal === 'function') openPipelineModal(); }, 200);
+    }
+    if (e.key === 'd' || e.key === 'D') { if (typeof setPage === 'function') setPage('dashboard'); }
+    if (e.key === 'p' || e.key === 'P') { if (typeof setPage === 'function') setPage('pipeline'); }
+  }
+});
+
+// ─── 4. TOPBAR EXTRAS (dark toggle + search) ───────────────
+function injectTopbarExtras() {
+  var topActions = document.querySelector('.top-actions') || document.querySelector('.topbar-right') || document.querySelector('.topbar');
+  if (!topActions || document.getElementById('darkToggleBtn')) return;
+
+  var darkBtn = document.createElement('button');
+  darkBtn.id = 'darkToggleBtn';
+  darkBtn.className = 'btn btn-soft';
+  darkBtn.title = 'Toggle Dark Mode';
+  darkBtn.textContent = isDark() ? '\u2600\ufe0f' : '\ud83c\udf19';
+  darkBtn.addEventListener('click', function() { applyDark(!isDark()); });
+
+  var sw = document.createElement('div');
+  sw.style.cssText = 'display:inline-flex;align-items:center;position:relative;';
+  // Use createElement to avoid any quote nesting issues
+  var inp = document.createElement('input');
+  inp.id = 'globalSearchInput';
+  inp.placeholder = '\ud83d\udd0d Cari di CRM...';
+  inp.autocomplete = 'off';
+  inp.addEventListener('input', function() { window.doGlobalSearch(this.value); });
+  var dropDiv = document.createElement('div');
+  dropDiv.id = 'globalSearchResult';
+  dropDiv.style.display = 'none';
+  sw.appendChild(inp);
+  sw.appendChild(dropDiv);
+
+  topActions.prepend(darkBtn);
+  topActions.prepend(sw);
+}
+
+// ─── 5. OVERDUE REMINDER ON DASHBOARD ──────────────────────
+waitFor(function() { return typeof renderDashboard === 'function'; }, 80, function() {
+  var _rd = window.renderDashboard;
+  window.renderDashboard = function() {
+    _rd();
+    if (!window.appState || !window.currentUser) return;
+    var today_ = new Date(); today_.setHours(0, 0, 0, 0);
+    var esc = (typeof escapeHTML === 'function') ? escapeHTML : function(s) { return String(s); };
+    var pipes = (typeof visiblePipelines === 'function') ? visiblePipelines() : [];
+    var overdue = pipes.filter(function(p) {
+      if (!p['Expected Close Date']) return false;
+      if (p.Stage === 'Won' || p.Stage === 'Lost') return false;
+      return new Date(p['Expected Close Date']) < today_;
+    });
+    var wrap = document.getElementById('dashboard') || document.querySelector('[id="dashboard"]');
+    if (!wrap) return;
+    var old = document.getElementById('bluOverdueBanner');
+    if (old) old.remove();
+    if (overdue.length) {
+      var banner = document.createElement('div');
+      banner.id = 'bluOverdueBanner';
+      banner.className = 'blu-overdue-banner';
+      banner.innerHTML = '\u26a0\ufe0f <b>' + overdue.length + ' opportunity melewati Expected Close Date</b> &nbsp;' +
+        overdue.slice(0, 3).map(function(p) { return '<span style="background:#fee2e2;border-radius:4px;padding:1px 6px;margin:0 2px">' + esc(p['Customer Name'] || '-') + '</span>'; }).join('') +
+        (overdue.length > 3 ? (' <span>+' + (overdue.length - 3) + ' lainnya</span>') : '');
+      wrap.insertBefore(banner, wrap.firstChild);
+    }
+  };
+});
+
+// ─── 6. MONTHLY TREND CHART IN REPORTS ─────────────────────
+waitFor(function() { return typeof renderReports === 'function'; }, 80, function() {
+  var _rr = window.renderReports;
+  window.renderReports = function() {
+    _rr();
+    setTimeout(function() {
+      var wrap = document.getElementById('reports');
+      if (!wrap || !window.appState) return;
+      if (document.getElementById('bluTrendChart')) return;
+      var pipes = (window.appState.pipelines || []);
+      var months = {};
+      pipes.forEach(function(p) {
+        var d = p['Expected Close Date'] || p.createdAt || '';
+        if (!d) return;
+        var key = d.substring(0, 7);
+        if (!months[key]) months[key] = { total: 0, won: 0 };
+        months[key].total++;
+        if (p.Stage === 'Won') months[key].won++;
+      });
+      var keys = Object.keys(months).sort().slice(-6);
+      if (!keys.length) return;
+      var maxT = Math.max.apply(null, keys.map(function(k) { return months[k].total; })) || 1;
+      var bars = keys.map(function(k) {
+        var m = months[k];
+        var pctT = Math.round(m.total / maxT * 100);
+        var pctW = Math.round(m.won / maxT * 100);
+        return "<div style='flex:1;display:flex;flex-direction:column;align-items:center;gap:4px'>" +
+          "<div style='width:100%;position:relative;height:80px;display:flex;align-items:flex-end;justify-content:center;gap:3px'>" +
+          "<div title='Total: " + m.total + "' style='width:40%;background:#3b82f6;height:" + pctT + "%'></div>" +
+          "<div title='Won: " + m.won + "' style='width:40%;background:#22c55e;height:" + pctW + "%'></div>" +
+          "</div>" +
+          "<span style='font-size:11px;color:#64748b'>" + k.substring(5) + "/" + k.substring(2,4) + "</span>" +
+          "<span style='font-size:10px'>" + m.total + "</span></div>";
+      }).join('');
+      var card = document.createElement('div');
+      card.className = 'card';
+      card.id = 'bluTrendChart';
+      card.innerHTML = "<div class='card-head'><div><h3>Monthly Trend</h3><small>6 bulan terakhir | <span style='color:#3b82f6'>\u25a0</span> Total &nbsp;<span style='color:#22c55e'>\u25a0</span> Won</small></div></div>" +
+        "<div style='display:flex;gap:8px;align-items:flex-end;padding:12px 0'>" + bars + "</div>";
+      wrap.insertBefore(card, wrap.firstChild);
+    }, 150);
+  };
+});
+
+// ─── 7. PRIORITY FLAG ON PIPELINE CARDS ────────────────────
+var BLU_PRIORITY_KEY = 'blu_priorities';
+function getPriorities() {
+  try { return JSON.parse(localStorage.getItem(BLU_PRIORITY_KEY) || '{}'); } catch(e) { return {}; }
+}
+function setPriority(id, val) {
+  var map = getPriorities(); map[id] = val;
+  localStorage.setItem(BLU_PRIORITY_KEY, JSON.stringify(map));
+}
+window.setBluPriority = function(id, val) {
+  setPriority(id, val);
+  if (typeof setPage === 'function') setPage('pipeline');
+};
+
+waitFor(function() { return typeof renderPipeline === 'function'; }, 80, function() {
+  var _rp = window.renderPipeline;
+  window.renderPipeline = function() {
+    _rp();
+    setTimeout(function() {
+      var map = getPriorities();
+      var cards = document.querySelectorAll('[data-pipeline-id]');
+      cards.forEach(function(card) {
+        var id = card.getAttribute('data-pipeline-id');
+        if (!id) return;
+        if (card.querySelector('.blu-priority-sel')) return;
+        var pr = map[id] || 'medium';
+        var sel = document.createElement('select');
+        sel.className = 'blu-priority-sel';
+        sel.style.cssText = 'font-size:11px;border:none;background:transparent;cursor:pointer;margin-top:4px;';
+        sel.innerHTML = '<option value="high"' + (pr==='high'?' selected':'') + '>\ud83d\udd34 High</option>' +
+          '<option value="medium"' + (pr==='medium'?' selected':'') + '>\ud83d\udfe1 Medium</option>' +
+          '<option value="low"' + (pr==='low'?' selected':'') + '>\ud83d\udfe2 Low</option>';
+        sel.addEventListener('change', function(e) { e.stopPropagation(); window.setBluPriority(id, this.value); });
+        card.appendChild(sel);
+      });
+    }, 200);
+  };
+});
+
+// ─── 8. CONVERT INQUIRY → PIPELINE ────────────────────────
+window.doConvertInquiry = function(id) {
+  var state = window.appState;
+  if (!state) return;
+  var inq = (state.inquiries || []).find(function(x) { return x.id === id; });
+  if (!inq) { if (typeof toast === 'function') toast('Error', 'Inquiry tidak ditemukan.'); return; }
+  var newPipe = {
+    id: (typeof uid === 'function') ? uid() : ('p' + Date.now()),
+    'Customer Name': inq.customer || '',
+    'Service Type': inq.kegiatan || '',
+    Stage: 'Qualification',
+    Status: 'Open',
+    Sales: inq.assignedTo || (window.currentUser ? window.currentUser.name : ''),
+    'Expected Close Date': '',
+    Value: 0,
+    Notes: 'Converted from Inquiry #' + (inq.id || ''),
+    createdAt: (typeof today === 'function') ? today() : new Date().toISOString().substring(0, 10)
+  };
+  if (!state.pipelines) state.pipelines = [];
+  state.pipelines.push(newPipe);
+  if (typeof saveState === 'function') saveState();
+  if (typeof syncCustomerFromPipeline === 'function') syncCustomerFromPipeline(newPipe);
+  if (typeof toast === 'function') toast('\u2705 Berhasil', 'Inquiry dikonversi ke Pipeline: ' + (newPipe['Customer Name'] || ''));
+  if (typeof setPage === 'function') setPage('pipeline');
+};
+
+waitFor(function() { return typeof renderInquiry === 'function'; }, 80, function() {
+  var _ri = window.renderInquiry;
+  window.renderInquiry = function() {
+    _ri();
+    setTimeout(function() {
+      var state = window.appState;
+      if (!state) return;
+      var esc = (typeof escapeHTML === 'function') ? escapeHTML : function(s) { return String(s); };
+      var tables = document.querySelectorAll('#inquiry table tbody, #inquiry2 table tbody');
+      tables.forEach(function(tbody) {
+        var rows = tbody.querySelectorAll('tr');
+        rows.forEach(function(row, rowIdx) {
+          if (row.querySelector('.blu-convert-btn')) return;
+          var inqs = state.inquiries || [];
+          if (rowIdx >= inqs.length) return;
+          var inq = inqs[rowIdx];
+          if (!inq) return;
+          var td = document.createElement('td');
+          td.innerHTML = "<button class='btn btn-soft blu-convert-btn' style='white-space:nowrap;font-size:12px' data-inq-id='" + esc(inq.id) + "'>&rarr; Pipeline</button>";
+          td.querySelector('.blu-convert-btn').addEventListener('click', function() {
+            window.doConvertInquiry(this.getAttribute('data-inq-id'));
+          });
+          row.appendChild(td);
+        });
+      });
+    }, 200);
+  };
+});
+
+// ─── 9. ACTIVITY LOG (admin only) ──────────────────────────
+if (!window.bluActivityLog) window.bluActivityLog = [];
+var _origSaveState = null;
+waitFor(function() { return typeof saveState === 'function'; }, 80, function() {
+  if (_origSaveState) return;
+  _origSaveState = window.saveState;
+  window.saveState = function() {
+    var user = window.currentUser ? window.currentUser.name : 'Unknown';
+    window.bluActivityLog.unshift({ time: new Date().toLocaleTimeString('id-ID'), user: user, action: 'Data tersimpan' });
+    if (window.bluActivityLog.length > 50) window.bluActivityLog.length = 50;
+    _origSaveState.apply(this, arguments);
+  };
+});
+
+window.renderBluActivityLog = function() {
+  var wrap = document.getElementById('bluActivityLogWrap');
+  if (!wrap) return;
+  var log = window.bluActivityLog || [];
+  if (!log.length) { wrap.innerHTML = "<p style='color:#94a3b8;font-size:13px'>Belum ada aktivitas tercatat.</p>"; return; }
+  wrap.innerHTML = "<table style='width:100%;font-size:13px'>" +
+    "<thead><tr><th style='text-align:left'>Waktu</th><th style='text-align:left'>User</th><th style='text-align:left'>Aksi</th></tr></thead>" +
+    "<tbody>" + log.map(function(l) {
+      return "<tr><td>" + l.time + "</td><td>" + l.user + "</td><td>" + l.action + "</td></tr>";
+    }).join('') + "</tbody></table>";
+};
+
+waitFor(function() { return typeof renderSettings === 'function'; }, 80, function() {
+  var _rs = window.renderSettings;
+  window.renderSettings = function() {
+    _rs();
+    setTimeout(function() {
+      var user = window.currentUser;
+      if (!user || user.role !== 'admin') return;
+      var wrap = document.getElementById('settings');
+      if (!wrap) return;
+
+      // Activity Log card
+      if (!document.getElementById('bluActivityCard')) {
+        var ac = document.createElement('div');
+        ac.className = 'card';
+        ac.id = 'bluActivityCard';
+        ac.innerHTML = "<div class='card-head'><div><h3>\ud83d\udcdd Activity Log</h3><small>Riwayat aksi pengguna (sesi ini)</small></div>" +
+          "<button class='btn btn-soft' id='bluRefreshLog'>Refresh</button></div>" +
+          "<div id='bluActivityLogWrap'></div>";
+        wrap.appendChild(ac);
+        document.getElementById('bluRefreshLog').addEventListener('click', window.renderBluActivityLog);
+        window.renderBluActivityLog();
+      }
+
+      // Sales Target card
+      if (!document.getElementById('bluTargetCard')) {
+        var tc = document.createElement('div');
+        tc.className = 'card';
+        tc.id = 'bluTargetCard';
+        var targets = {};
+        try { targets = JSON.parse(localStorage.getItem('blu_targets') || '{}'); } catch(e) {}
+        var state = window.appState || {};
+        var sales = (typeof SALES !== 'undefined') ? SALES : (state.settings && state.settings.salesTeam ? state.settings.salesTeam : []);
+        var rows = sales.map(function(s) {
+          var name = typeof s === 'string' ? s : (s.name || s);
+          var target = targets[name] || 0;
+          var actual = (state.pipelines || []).filter(function(p) { return (p.Sales === name) && p.Stage === 'Won'; })
+            .reduce(function(sum, p) { return sum + (parseFloat(p.Value) || 0); }, 0);
+          var pct = target ? Math.min(100, Math.round(actual / target * 100)) : 0;
+          var color = pct >= 100 ? '#22c55e' : pct >= 50 ? '#f59e0b' : '#ef4444';
+          return "<tr>" +
+            "<td>" + name + "</td>" +
+            "<td><input type='number' data-sales='" + name + "' class='blu-target-inp' value='" + target + "' style='width:100px;padding:3px 6px;border:1px solid #cbd5e1;border-radius:4px;font-size:12px' /></td>" +
+            "<td>" + (typeof money === 'function' ? money(actual) : actual.toLocaleString()) + "</td>" +
+            "<td><div style='background:#e2e8f0;border-radius:4px;height:8px;width:120px'><div style='background:" + color + ";width:" + pct + "%;height:100%;border-radius:4px'></div></div> " + pct + "%</td>" +
+            "</tr>";
+        }).join('');
+        tc.innerHTML = "<div class='card-head'><div><h3>\ud83c\udfaf Sales Target</h3><small>Target revenue per sales (Won deals)</small></div>" +
+          "<button class='btn btn-primary' id='bluSaveTargets'>Simpan Target</button></div>" +
+          "<table style='width:100%;font-size:13px'>" +
+          "<thead><tr><th style='text-align:left'>Sales</th><th style='text-align:left'>Target (Rp)</th><th style='text-align:left'>Actual</th><th style='text-align:left'>Progress</th></tr></thead>" +
+          "<tbody>" + rows + "</tbody></table>";
+        wrap.appendChild(tc);
+        document.getElementById('bluSaveTargets').addEventListener('click', function() {
+          var map = {};
+          document.querySelectorAll('.blu-target-inp').forEach(function(inp) {
+            map[inp.dataset.sales] = parseFloat(inp.value) || 0;
+          });
+          localStorage.setItem('blu_targets', JSON.stringify(map));
+          if (typeof toast === 'function') toast('\u2705 Tersimpan', 'Target sales berhasil disimpan.');
+        });
+      }
+    }, 200);
+  };
+});
+
+// ─── 10. FOLLOW-UP DATE TRACKING ───────────────────────────
+window.getBluFollowUps = function() {
+  try { return JSON.parse(localStorage.getItem('blu_followups') || '{}'); } catch(e) { return {}; }
+};
+window.setBluFollowUp = function(id, date) {
+  var map = window.getBluFollowUps();
+  map[id] = date;
+  localStorage.setItem('blu_followups', JSON.stringify(map));
+  if (typeof toast === 'function') toast('\ud83d\udcc5 Follow-up', 'Diatur: ' + date);
+};
+
+// ─── 11. BOOT HOOK ─────────────────────────────────────────
+waitFor(function() { return typeof bootApp === 'function'; }, 100, function() {
+  var _boot = window.bootApp;
+  window.bootApp = function() {
+    _boot();
+    setTimeout(function() {
+      injectTopbarExtras();
+      if (!localStorage.getItem('bluShortcutHint')) {
+        setTimeout(function() {
+          if (typeof toast === 'function') {
+            toast('\u2328\ufe0f Keyboard Shortcuts',
+              "<span class='kbd'>N</span> Tambah Opportunity &nbsp; <span class='kbd'>D</span> Dashboard &nbsp; <span class='kbd'>P</span> Pipeline &nbsp; <span class='kbd'>Esc</span> Tutup Modal"
+            );
+          }
+          localStorage.setItem('bluShortcutHint', '1');
+        }, 2000);
+      }
+    }, 350);
+  };
+});
 </script>
 
 </body>
