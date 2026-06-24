@@ -135,47 +135,7 @@
     .toast{position:fixed;right:22px;bottom:22px;background:var(--navy-2);color:#fff;padding:14px 16px;border-radius:16px;box-shadow:0 18px 38px rgba(11,31,61,.24);z-index:70;max-width:360px}.toast b{display:block;margin-bottom:4px}.toast span{font-size:13px;color:rgba(255,255,255,.78)}
     @media(max-width:1100px){.grid-4{grid-template-columns:repeat(2,1fr)}.grid-3{grid-template-columns:repeat(2,1fr)}.inbox-layout{grid-template-columns:1fr}.pipeline-board{grid-template-columns:repeat(5,260px)}.login-wrap{grid-template-columns:1fr}.login-hero{display:none}.form-grid{grid-template-columns:1fr}.form-grid .span-2,.form-grid .span-3{grid-column:span 1}}
     @media(max-width:820px){:root{--sidebar:0}.app{grid-template-columns:1fr}.sidebar{position:fixed;z-index:40;left:-310px;width:290px;transition:.22s}.sidebar.open{left:0}.mobile-toggle{display:inline-flex}.topbar{padding:14px 16px}.content{padding:16px}.grid-4,.grid-3,.grid-2{grid-template-columns:1fr}.top-actions{justify-content:flex-start}.toolbar{width:100%}.toolbar input,.toolbar select{width:100%}.login-panel{padding:18px}.login-card{padding:24px}.kpi .value{font-size:28px}}
-  
-/* FIX: Sidebar isolation - cegah blur dari backdrop masuk ke sidebar */
-.sidebar {
-  isolation: isolate;
-}
-@media (max-width: 820px) {
-  .sidebar {
-    z-index: 45 !important;  /* lebih tinggi dari backdrop (39) */
-    isolation: isolate;
-  }
-  .sidebar .nav button {
-    pointer-events: auto !important;
-    opacity: 1 !important;
-    filter: none !important;
-    position: relative;
-    z-index: 46;
-    cursor: pointer;
-  }
-  .sidebar .nav button:hover,
-  .sidebar .nav button.active {
-    background: rgba(255,255,255,.18) !important;
-    color: #fff !important;
-    opacity: 1 !important;
-  }
-}
-
-/* FIX: Toolbar - pastikan selalu clickable */
-.toolbar {
-  position: relative;
-  z-index: 2;
-  pointer-events: auto !important;
-}
-.toolbar input,
-.toolbar select,
-.toolbar button {
-  pointer-events: auto !important;
-  opacity: 1 !important;
-  filter: none !important;
-  cursor: pointer;
-}
-</style>
+  </style>
 
   <!-- BLU Enhancement CSS -->
   <style id="blu-enhance">
@@ -277,48 +237,58 @@
 
 <!-- ===== MOBILE FRIENDLY ENHANCEMENT ===== -->
 <style id="blu-mobile">
+/* ==========================================================
+   BLU CRM - Mobile Responsive Styles
+   Pendekatan: CSS-only, tidak override z-index app asli
+   ========================================================== */
 
-/* ── 1. TOPBAR: Stack on mobile ─────────────────────────── */
+/* 1. TOUCH: Hapus 300ms delay di semua elemen interaktif */
+button, a, input, select, textarea, [role="button"] {
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* 2. TOPBAR mobile */
 @media (max-width: 820px) {
   .topbar {
     flex-wrap: wrap;
-    gap: 10px;
-    padding: 12px 14px !important;
+    gap: 8px;
+    padding: 10px 14px !important;
   }
-  .topbar > div:first-child {
-    flex: 1;
-    min-width: 0;
+  .topbar h1 {
+    font-size: 16px !important;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 160px;
   }
-  .topbar h1 { font-size: 17px !important; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .topbar p  { font-size: 11px !important; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .topbar p { font-size: 11px !important; }
   .top-actions {
     width: 100%;
     display: flex;
     flex-wrap: wrap;
-    gap: 7px;
-    justify-content: flex-start !important;
-  }
-  /* Sembunyikan tombol sekunder di layar sangat kecil */
-  @media (max-width: 480px) {
-    #syncNow, #resetDemo { display: none !important; }
-    #monthFilter { max-width: 110px; font-size: 12px; padding: 6px 8px; }
-    #logout { padding: 7px 12px; font-size: 12px; }
-    #agentStatus { font-size: 11px; }
+    gap: 6px;
   }
 }
+@media (max-width: 480px) {
+  #syncNow, #resetDemo { display: none !important; }
+  #monthFilter { max-width: 120px; font-size: 12px; }
+  #logout { padding: 7px 12px; font-size: 12px; }
+}
 
-/* ── 2. SIDEBAR: Backdrop overlay saat terbuka ──────────── */
+/* 3. SIDEBAR overlay - backdrop (area kanan sidebar saja) */
 #sidebarBackdrop {
   display: none;
   position: fixed;
-  inset: 0;
-  background: rgba(11,31,61,.52);
+  top: 0; bottom: 0;
+  left: 290px; /* mulai SETELAH sidebar */
+  right: 0;
+  background: rgba(11,31,61,.55);
   z-index: 39;
-  /* backdrop-filter dihapus: menyebabkan blur pada nav sidebar */
 }
 #sidebarBackdrop.show { display: block; }
 
-/* ── 3. TABEL: Responsive card-style di layar kecil ─────── */
+/* 4. TABEL card-style di mobile */
 @media (max-width: 640px) {
   .table-wrap { border-radius: 12px; }
   .data-table { min-width: unset !important; }
@@ -327,7 +297,7 @@
     display: block;
     border: 1px solid #e2e8f0;
     border-radius: 12px;
-    margin: 8px 10px;
+    margin: 8px 6px;
     padding: 10px 12px;
     background: #fff;
     box-shadow: 0 2px 8px rgba(11,31,61,.06);
@@ -349,14 +319,12 @@
     color: #657086;
     font-size: 11px;
     text-transform: uppercase;
-    letter-spacing: .04em;
-    min-width: 110px;
+    min-width: 100px;
     flex-shrink: 0;
   }
-  .data-table tbody tr:hover td { background: transparent !important; }
 }
 
-/* ── 4. MODAL: Full-screen di mobile ────────────────────── */
+/* 5. MODAL full-screen di mobile */
 @media (max-width: 640px) {
   .modal-backdrop { padding: 0 !important; align-items: flex-end !important; }
   .modal {
@@ -365,19 +333,11 @@
     border-radius: 24px 24px 0 0 !important;
     padding: 20px 16px !important;
   }
-  .modal::before {
-    content: "";
-    display: block;
-    width: 40px; height: 4px;
-    background: #dfe6f2;
-    border-radius: 99px;
-    margin: 0 auto 16px;
-  }
-  .form-grid { grid-template-columns: 1fr !important; gap: 10px !important; }
+  .form-grid { grid-template-columns: 1fr !important; }
   .form-grid .span-2, .form-grid .span-3 { grid-column: span 1 !important; }
 }
 
-/* ── 5. PIPELINE BOARD: Snap-scroll horizontal ──────────── */
+/* 6. PIPELINE horizontal scroll */
 @media (max-width: 820px) {
   .pipeline-board {
     display: flex !important;
@@ -388,248 +348,236 @@
     -webkit-overflow-scrolling: touch;
     padding-bottom: 8px;
   }
-  .pipeline-board::-webkit-scrollbar { height: 4px; }
-  .pipeline-board::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 99px; }
   .stage-col {
-    min-width: 220px !important;
-    max-width: 220px !important;
+    min-width: 210px !important;
+    max-width: 210px !important;
     flex-shrink: 0;
     scroll-snap-align: start;
   }
 }
 
-/* ── 6. INBOX: Chat panel stacked on mobile ─────────────── */
+/* 7. INBOX stacked */
 @media (max-width: 820px) {
-  .inbox-layout { grid-template-columns: 1fr !important; gap: 12px !important; }
-  .chat-list { max-height: 320px !important; }
-  .chat-panel { min-height: 400px !important; }
-  .conversation { max-height: 280px !important; }
-  .composer {
-    grid-template-columns: 1fr auto !important;
-    gap: 8px !important;
-  }
-  .composer textarea { min-height: 44px !important; }
+  .inbox-layout { grid-template-columns: 1fr !important; }
+  .chat-list { max-height: 300px !important; }
+  .conversation { max-height: 260px !important; }
 }
 
-/* ── 7. KPI CARDS: Font lebih kecil ─────────────────────── */
+/* 8. KPI smaller font */
 @media (max-width: 480px) {
   .kpi .value { font-size: 22px !important; }
-  .kpi .label { font-size: 11px !important; }
-  .kpi .note  { font-size: 11px !important; }
   .card { padding: 14px !important; }
   .card h3 { font-size: 15px !important; }
 }
 
-/* ── 8. BAR ROWS: Wrap label ─────────────────────────────── */
-@media (max-width: 480px) {
-  .bar-row { grid-template-columns: 90px 1fr 44px !important; gap: 8px !important; font-size: 12px !important; }
-  .bar-list { gap: 8px !important; }
-}
-
-/* ── 9. GLOBAL SEARCH: Full-width dropdown ──────────────── */
+/* 9. GRID collapse */
 @media (max-width: 640px) {
-  #globalSearchInput { width: 140px !important; font-size: 12px !important; }
-  #globalSearchResult {
-    left: 8px !important;
-    right: 8px !important;
-    width: auto !important;
-    min-width: unset !important;
-  }
+  .grid-4, .grid-3, .grid-2 { grid-template-columns: 1fr !important; }
+  .bar-row { grid-template-columns: 90px 1fr 44px !important; font-size: 12px !important; }
 }
 
-/* ── 10. LOGIN: Full-width card ─────────────────────────── */
-@media (max-width: 480px) {
-  .login-card {
-    padding: 20px 16px !important;
-    border-radius: 20px !important;
-  }
-  .login-card h2 { font-size: 24px !important; }
-  .demo-chip { flex-direction: column; align-items: flex-start; gap: 6px !important; }
-}
-
-/* ── 11. CONTENT padding tambahan untuk fab ─────────────── */
+/* 10. CONTENT padding bawah untuk bottom nav */
 @media (max-width: 820px) {
-  .content { padding-bottom: 80px !important; }
+  .content { padding-bottom: 72px !important; }
 }
 
-/* ── 12. BOTTOM NAVIGATION (mobile nav bar) ─────────────── */
+/* 11. BOTTOM NAV bar */
 #blu-bottom-nav {
   display: none;
   position: fixed;
   bottom: 0; left: 0; right: 0;
-  z-index: 38;
+  height: 58px;
+  z-index: 35;  /* di bawah sidebar (40) agar tidak menutupi sidebar */
   background: linear-gradient(180deg, #0B1F3D, #142E5C);
   border-top: 1px solid rgba(255,255,255,.12);
-  padding: 8px 0 env(safe-area-inset-bottom, 8px);
+  padding: 0;
   justify-content: space-around;
   align-items: center;
 }
 #blu-bottom-nav button {
-  display: flex; flex-direction: column; align-items: center; gap: 3px;
-  border: 0; background: transparent; color: rgba(255,255,255,.65);
-  font-size: 10px; font-weight: 700; padding: 4px 8px;
-  border-radius: 10px; transition: .18s; cursor: pointer; min-width: 48px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  border: 0;
+  background: transparent;
+  color: rgba(255,255,255,.6);
+  font-size: 10px;
+  font-weight: 700;
+  padding: 6px 10px;
+  border-radius: 10px;
+  cursor: pointer;
+  min-width: 52px;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: rgba(255,255,255,.1);
 }
-#blu-bottom-nav button .bnav-icon { font-size: 20px; line-height: 1; }
+#blu-bottom-nav button span.bnav-icon { font-size: 18px; line-height: 1; }
 #blu-bottom-nav button.active,
-#blu-bottom-nav button:hover {
-  color: #FF7A3D;
-  background: rgba(255,255,255,.08);
-}
-@media (max-width: 820px) {
-  #blu-bottom-nav { display: flex; }
+#blu-bottom-nav button:active { color: #FF7A3D; }
+@media (max-width: 820px) { #blu-bottom-nav { display: flex; } }
+
+/* 12. TOAST naik di mobile */
+@media (max-width: 640px) {
+  .toast { bottom: 68px !important; left: 12px !important; right: 12px !important; max-width: 100% !important; }
 }
 
-/* ── 13. REPORTS: toolbar wrap ──────────────────────────── */
+/* 13. SEARCH full-width */
+@media (max-width: 640px) {
+  #globalSearchResult { left: 8px !important; right: 8px !important; width: auto !important; }
+}
+
+/* 14. LOGIN card */
+@media (max-width: 480px) {
+  .login-card { padding: 20px 16px !important; }
+  .login-hero { display: none; }
+  .login-wrap { grid-template-columns: 1fr !important; }
+}
+
+/* 15. REPORTS toolbar */
 @media (max-width: 640px) {
   #reportMonthFilter { width: 100%; }
-  .card > div[style*="display:flex"] { flex-wrap: wrap !important; gap: 8px !important; }
-}
-
-/* ── 14. TOPBAR search & clock wrap ─────────────────────── */
-@media (max-width: 480px) {
-  #blu-clock { display: none !important; }
-  #darkToggleBtn { padding: 7px 10px !important; font-size: 14px !important; }
-}
-
-/* ── 15. Toast: full-width on mobile ────────────────────── */
-@media (max-width: 640px) {
-  .toast {
-    left: 12px !important; right: 12px !important;
-    bottom: 70px !important;
-    max-width: 100% !important;
-  }
-}
-
-/* ── 16. Card-head wrap on mobile ───────────────────────── */
-@media (max-width: 640px) {
-  .card-head { flex-wrap: wrap !important; gap: 10px !important; }
-  .toolbar { flex-wrap: wrap !important; gap: 8px !important; }
+  .toolbar { flex-wrap: wrap !important; }
   .toolbar input, .toolbar select { width: 100% !important; }
 }
 
-/* ── 17. User access matrix scroll ─────────────────────── */
+/* 16. USERS table scroll */
 @media (max-width: 820px) {
   #users .table-wrap { overflow-x: auto; }
-  #users .data-table { min-width: 640px !important; }
+  #users .data-table { min-width: 600px !important; }
 }
-
 </style>
 
 <script id="blu-mobile-js">
+/* BLU CRM Mobile Script - Minimal, non-invasive */
 document.addEventListener('DOMContentLoaded', function() {
 
-  // -- Sidebar backdrop --
-  var backdrop = document.createElement('div');
-  backdrop.id = 'sidebarBackdrop';
-  document.body.appendChild(backdrop);
+  /* ----- 1. Backdrop untuk sidebar ----- */
+  var bd = document.createElement('div');
+  bd.id = 'sidebarBackdrop';
+  document.body.appendChild(bd);
 
-  function openSidebar() {
-    var s = document.getElementById('sidebar');
-    if (s) { s.classList.add('open'); backdrop.classList.add('show'); }
-  }
   function closeSidebar() {
     var s = document.getElementById('sidebar');
-    if (s) { s.classList.remove('open'); backdrop.classList.remove('show'); }
+    if (s) s.classList.remove('open');
+    bd.classList.remove('show');
+  }
+  function openSidebar() {
+    var s = document.getElementById('sidebar');
+    if (s) s.classList.add('open');
+    bd.classList.add('show');
   }
 
-  backdrop.addEventListener('click', closeSidebar);
+  // Tap backdrop tutup sidebar
+  bd.addEventListener('click', closeSidebar);
 
+  // Override fungsi sidebar app bawaan (tambahkan backdrop)
+  var origToggle = window.toggleSidebar;
+  if (typeof origToggle === 'function') {
+    window.toggleSidebar = function() {
+      origToggle();
+      var s = document.getElementById('sidebar');
+      if (s && s.classList.contains('open')) bd.classList.add('show');
+      else bd.classList.remove('show');
+    };
+  }
+
+  // Patch mobileToggle - tambah listener TANPA menghapus yang lama
   var tog = document.getElementById('mobileToggle');
   if (tog) {
-    var newTog = tog.cloneNode(true);
-    tog.parentNode.replaceChild(newTog, tog);
-    newTog.addEventListener('click', function() {
+    tog.addEventListener('click', function() {
       var s = document.getElementById('sidebar');
-      if (s && s.classList.contains('open')) { closeSidebar(); }
-      else { openSidebar(); }
+      if (s && s.classList.contains('open')) bd.classList.remove('show');
+      else bd.classList.add('show');
     });
   }
 
-  document.addEventListener('click', function(e) {
-    var btn = e.target.closest('#nav button');
-    if (btn && window.innerWidth <= 820) { closeSidebar(); }
-  });
+  // Tutup sidebar saat nav diklik
+  var nav = document.getElementById('nav');
+  if (nav) {
+    nav.addEventListener('click', function(e) {
+      var btn = e.target.closest('button');
+      if (btn && window.innerWidth <= 820) {
+        setTimeout(closeSidebar, 120);
+      }
+    });
+  }
 
-  // -- Bottom Navigation Bar --
-  var navItems = [
-    { view: 'dashboard', label: 'Beranda'  },
-    { view: 'pipeline',  label: 'Pipeline' },
-    { view: 'inbox',     label: 'Inbox'    },
-    { view: 'customers', label: 'Customer' },
-    { view: 'reports',   label: 'Reports'  }
+  /* ----- 2. Swipe kanan buka sidebar ----- */
+  var swipeX = 0;
+  document.addEventListener('touchstart', function(e) {
+    swipeX = e.touches[0].clientX;
+  }, { passive: true });
+  document.addEventListener('touchend', function(e) {
+    var dx = e.changedTouches[0].clientX - swipeX;
+    if (swipeX < 24 && dx > 55) openSidebar();
+    if (dx < -55) {
+      var s = document.getElementById('sidebar');
+      if (s && s.classList.contains('open')) closeSidebar();
+    }
+  }, { passive: true });
+
+  /* ----- 3. Bottom Nav Bar ----- */
+  var items = [
+    { v: 'dashboard', icon: '&#9680;', label: 'Beranda' },
+    { v: 'pipeline',  icon: '&#9650;', label: 'Pipeline' },
+    { v: 'inbox',     icon: '&#9993;', label: 'Inbox' },
+    { v: 'customers', icon: '&#9679;', label: 'Customer' },
+    { v: 'reports',   icon: '&#9636;', label: 'Reports' }
   ];
 
   var bnav = document.createElement('div');
   bnav.id = 'blu-bottom-nav';
 
-  navItems.forEach(function(item) {
+  items.forEach(function(item) {
     var btn = document.createElement('button');
-    btn.setAttribute('data-view', item.view);
-    var labelSpan = document.createElement('span');
-    labelSpan.textContent = item.label;
-    btn.appendChild(labelSpan);
+    btn.setAttribute('data-view', item.v);
+    btn.innerHTML = '<span class="bnav-icon">' + item.icon + '</span><span>' + item.label + '</span>';
     btn.addEventListener('click', function() {
-      if (typeof window.setPage === 'function') { window.setPage(item.view); }
+      if (typeof window.setPage === 'function') window.setPage(item.v);
     });
     bnav.appendChild(btn);
   });
-
   document.body.appendChild(bnav);
 
-  function syncBottomNav(view) {
+  function syncBnav(view) {
     bnav.querySelectorAll('button').forEach(function(b) {
       b.classList.toggle('active', b.getAttribute('data-view') === view);
     });
   }
 
+  /* ----- 4. Patch setPage - sync bottom nav saja ----- */
   function patchSetPage() {
-    if (typeof window.setPage === 'function') {
-      var _orig = window.setPage;
+    if (typeof window.setPage === 'function' && !window._bnavPatched) {
+      window._bnavPatched = true;
+      var orig = window.setPage;
       window.setPage = function(view) {
-        _orig(view);
-        syncBottomNav(view);
-        closeSidebar();
+        orig.call(this, view);
+        syncBnav(view);
+        // Tutup sidebar saat navigasi di mobile
+        if (window.innerWidth <= 820) setTimeout(closeSidebar, 120);
       };
-      syncBottomNav('dashboard');
-    } else {
+      syncBnav('dashboard');
+    } else if (!window._bnavPatched) {
       setTimeout(patchSetPage, 100);
     }
   }
   patchSetPage();
 
-  // -- Data-label untuk tabel card-style di mobile --
-  function labelTableCells() {
+  /* ----- 5. Data-label tabel ----- */
+  function labelTables() {
     document.querySelectorAll('.data-table').forEach(function(tbl) {
-      var headers = [];
-      tbl.querySelectorAll('thead th').forEach(function(th) {
-        headers.push(th.textContent.trim());
-      });
-      if (!headers.length) return;
+      var hds = [];
+      tbl.querySelectorAll('thead th').forEach(function(th) { hds.push(th.textContent.trim()); });
+      if (!hds.length) return;
       tbl.querySelectorAll('tbody tr').forEach(function(row) {
         row.querySelectorAll('td').forEach(function(td, i) {
-          if (headers[i]) { td.setAttribute('data-label', headers[i]); }
+          if (hds[i]) td.setAttribute('data-label', hds[i]);
         });
       });
     });
   }
-  var tableObs = new MutationObserver(function() { labelTableCells(); });
-  tableObs.observe(document.body, { childList: true, subtree: true });
-  labelTableCells();
-
-  // -- Swipe gesture untuk sidebar --
-  var touchStartX = 0;
-  document.addEventListener('touchstart', function(e) {
-    touchStartX = e.touches[0].clientX;
-  }, { passive: true });
-  document.addEventListener('touchend', function(e) {
-    var dx = e.changedTouches[0].clientX - touchStartX;
-    if (touchStartX < 28 && dx > 60) { openSidebar(); }
-    if (dx < -60) {
-      var s = document.getElementById('sidebar');
-      if (s && s.classList.contains('open')) { closeSidebar(); }
-    }
-  }, { passive: true });
+  new MutationObserver(labelTables).observe(document.body, { childList: true, subtree: true });
+  labelTables();
 
 });
 </script>
