@@ -234,6 +234,366 @@
     /* Body padding for ticker */
     body.ticker-on{padding-bottom:38px}
   </style>
+
+<!-- ===== MOBILE FRIENDLY ENHANCEMENT ===== -->
+<style id="blu-mobile">
+
+/* ── 1. TOPBAR: Stack on mobile ─────────────────────────── */
+@media (max-width: 820px) {
+  .topbar {
+    flex-wrap: wrap;
+    gap: 10px;
+    padding: 12px 14px !important;
+  }
+  .topbar > div:first-child {
+    flex: 1;
+    min-width: 0;
+  }
+  .topbar h1 { font-size: 17px !important; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .topbar p  { font-size: 11px !important; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .top-actions {
+    width: 100%;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 7px;
+    justify-content: flex-start !important;
+  }
+  /* Sembunyikan tombol sekunder di layar sangat kecil */
+  @media (max-width: 480px) {
+    #syncNow, #resetDemo { display: none !important; }
+    #monthFilter { max-width: 110px; font-size: 12px; padding: 6px 8px; }
+    #logout { padding: 7px 12px; font-size: 12px; }
+    #agentStatus { font-size: 11px; }
+  }
+}
+
+/* ── 2. SIDEBAR: Backdrop overlay saat terbuka ──────────── */
+#sidebarBackdrop {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(11,31,61,.48);
+  z-index: 39;
+  backdrop-filter: blur(2px);
+}
+#sidebarBackdrop.show { display: block; }
+
+/* ── 3. TABEL: Responsive card-style di layar kecil ─────── */
+@media (max-width: 640px) {
+  .table-wrap { border-radius: 12px; }
+  .data-table { min-width: unset !important; }
+  .data-table thead { display: none; }
+  .data-table tbody tr {
+    display: block;
+    border: 1px solid #e2e8f0;
+    border-radius: 12px;
+    margin: 8px 10px;
+    padding: 10px 12px;
+    background: #fff;
+    box-shadow: 0 2px 8px rgba(11,31,61,.06);
+  }
+  .data-table tbody td {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 8px;
+    padding: 5px 0 !important;
+    border: none !important;
+    font-size: 13px;
+    border-bottom: 1px solid #f1f5f9 !important;
+  }
+  .data-table tbody td:last-child { border-bottom: none !important; }
+  .data-table tbody td::before {
+    content: attr(data-label);
+    font-weight: 700;
+    color: #657086;
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: .04em;
+    min-width: 110px;
+    flex-shrink: 0;
+  }
+  .data-table tbody tr:hover td { background: transparent !important; }
+}
+
+/* ── 4. MODAL: Full-screen di mobile ────────────────────── */
+@media (max-width: 640px) {
+  .modal-backdrop { padding: 0 !important; align-items: flex-end !important; }
+  .modal {
+    width: 100% !important;
+    max-height: 92vh !important;
+    border-radius: 24px 24px 0 0 !important;
+    padding: 20px 16px !important;
+  }
+  .modal::before {
+    content: "";
+    display: block;
+    width: 40px; height: 4px;
+    background: #dfe6f2;
+    border-radius: 99px;
+    margin: 0 auto 16px;
+  }
+  .form-grid { grid-template-columns: 1fr !important; gap: 10px !important; }
+  .form-grid .span-2, .form-grid .span-3 { grid-column: span 1 !important; }
+}
+
+/* ── 5. PIPELINE BOARD: Snap-scroll horizontal ──────────── */
+@media (max-width: 820px) {
+  .pipeline-board {
+    display: flex !important;
+    flex-wrap: nowrap !important;
+    overflow-x: auto !important;
+    gap: 12px !important;
+    scroll-snap-type: x mandatory;
+    -webkit-overflow-scrolling: touch;
+    padding-bottom: 8px;
+  }
+  .pipeline-board::-webkit-scrollbar { height: 4px; }
+  .pipeline-board::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 99px; }
+  .stage-col {
+    min-width: 220px !important;
+    max-width: 220px !important;
+    flex-shrink: 0;
+    scroll-snap-align: start;
+  }
+}
+
+/* ── 6. INBOX: Chat panel stacked on mobile ─────────────── */
+@media (max-width: 820px) {
+  .inbox-layout { grid-template-columns: 1fr !important; gap: 12px !important; }
+  .chat-list { max-height: 320px !important; }
+  .chat-panel { min-height: 400px !important; }
+  .conversation { max-height: 280px !important; }
+  .composer {
+    grid-template-columns: 1fr auto !important;
+    gap: 8px !important;
+  }
+  .composer textarea { min-height: 44px !important; }
+}
+
+/* ── 7. KPI CARDS: Font lebih kecil ─────────────────────── */
+@media (max-width: 480px) {
+  .kpi .value { font-size: 22px !important; }
+  .kpi .label { font-size: 11px !important; }
+  .kpi .note  { font-size: 11px !important; }
+  .card { padding: 14px !important; }
+  .card h3 { font-size: 15px !important; }
+}
+
+/* ── 8. BAR ROWS: Wrap label ─────────────────────────────── */
+@media (max-width: 480px) {
+  .bar-row { grid-template-columns: 90px 1fr 44px !important; gap: 8px !important; font-size: 12px !important; }
+  .bar-list { gap: 8px !important; }
+}
+
+/* ── 9. GLOBAL SEARCH: Full-width dropdown ──────────────── */
+@media (max-width: 640px) {
+  #globalSearchInput { width: 140px !important; font-size: 12px !important; }
+  #globalSearchResult {
+    left: 8px !important;
+    right: 8px !important;
+    width: auto !important;
+    min-width: unset !important;
+  }
+}
+
+/* ── 10. LOGIN: Full-width card ─────────────────────────── */
+@media (max-width: 480px) {
+  .login-card {
+    padding: 20px 16px !important;
+    border-radius: 20px !important;
+  }
+  .login-card h2 { font-size: 24px !important; }
+  .demo-chip { flex-direction: column; align-items: flex-start; gap: 6px !important; }
+}
+
+/* ── 11. CONTENT padding tambahan untuk fab ─────────────── */
+@media (max-width: 820px) {
+  .content { padding-bottom: 80px !important; }
+}
+
+/* ── 12. BOTTOM NAVIGATION (mobile nav bar) ─────────────── */
+#blu-bottom-nav {
+  display: none;
+  position: fixed;
+  bottom: 0; left: 0; right: 0;
+  z-index: 38;
+  background: linear-gradient(180deg, #0B1F3D, #142E5C);
+  border-top: 1px solid rgba(255,255,255,.12);
+  padding: 8px 0 env(safe-area-inset-bottom, 8px);
+  justify-content: space-around;
+  align-items: center;
+}
+#blu-bottom-nav button {
+  display: flex; flex-direction: column; align-items: center; gap: 3px;
+  border: 0; background: transparent; color: rgba(255,255,255,.65);
+  font-size: 10px; font-weight: 700; padding: 4px 8px;
+  border-radius: 10px; transition: .18s; cursor: pointer; min-width: 48px;
+}
+#blu-bottom-nav button .bnav-icon { font-size: 20px; line-height: 1; }
+#blu-bottom-nav button.active,
+#blu-bottom-nav button:hover {
+  color: #FF7A3D;
+  background: rgba(255,255,255,.08);
+}
+@media (max-width: 820px) {
+  #blu-bottom-nav { display: flex; }
+}
+
+/* ── 13. REPORTS: toolbar wrap ──────────────────────────── */
+@media (max-width: 640px) {
+  #reportMonthFilter { width: 100%; }
+  .card > div[style*="display:flex"] { flex-wrap: wrap !important; gap: 8px !important; }
+}
+
+/* ── 14. TOPBAR search & clock wrap ─────────────────────── */
+@media (max-width: 480px) {
+  #blu-clock { display: none !important; }
+  #darkToggleBtn { padding: 7px 10px !important; font-size: 14px !important; }
+}
+
+/* ── 15. Toast: full-width on mobile ────────────────────── */
+@media (max-width: 640px) {
+  .toast {
+    left: 12px !important; right: 12px !important;
+    bottom: 70px !important;
+    max-width: 100% !important;
+  }
+}
+
+/* ── 16. Card-head wrap on mobile ───────────────────────── */
+@media (max-width: 640px) {
+  .card-head { flex-wrap: wrap !important; gap: 10px !important; }
+  .toolbar { flex-wrap: wrap !important; gap: 8px !important; }
+  .toolbar input, .toolbar select { width: 100% !important; }
+}
+
+/* ── 17. User access matrix scroll ─────────────────────── */
+@media (max-width: 820px) {
+  #users .table-wrap { overflow-x: auto; }
+  #users .data-table { min-width: 640px !important; }
+}
+
+</style>
+
+<script id="blu-mobile-js">
+document.addEventListener('DOMContentLoaded', function() {
+
+  // -- Sidebar backdrop --
+  var backdrop = document.createElement('div');
+  backdrop.id = 'sidebarBackdrop';
+  document.body.appendChild(backdrop);
+
+  function openSidebar() {
+    var s = document.getElementById('sidebar');
+    if (s) { s.classList.add('open'); backdrop.classList.add('show'); }
+  }
+  function closeSidebar() {
+    var s = document.getElementById('sidebar');
+    if (s) { s.classList.remove('open'); backdrop.classList.remove('show'); }
+  }
+
+  backdrop.addEventListener('click', closeSidebar);
+
+  var tog = document.getElementById('mobileToggle');
+  if (tog) {
+    var newTog = tog.cloneNode(true);
+    tog.parentNode.replaceChild(newTog, tog);
+    newTog.addEventListener('click', function() {
+      var s = document.getElementById('sidebar');
+      if (s && s.classList.contains('open')) { closeSidebar(); }
+      else { openSidebar(); }
+    });
+  }
+
+  document.addEventListener('click', function(e) {
+    var btn = e.target.closest('#nav button');
+    if (btn && window.innerWidth <= 820) { closeSidebar(); }
+  });
+
+  // -- Bottom Navigation Bar --
+  var navItems = [
+    { view: 'dashboard', label: 'Beranda'  },
+    { view: 'pipeline',  label: 'Pipeline' },
+    { view: 'inbox',     label: 'Inbox'    },
+    { view: 'customers', label: 'Customer' },
+    { view: 'reports',   label: 'Reports'  }
+  ];
+
+  var bnav = document.createElement('div');
+  bnav.id = 'blu-bottom-nav';
+
+  navItems.forEach(function(item) {
+    var btn = document.createElement('button');
+    btn.setAttribute('data-view', item.view);
+    var labelSpan = document.createElement('span');
+    labelSpan.textContent = item.label;
+    btn.appendChild(labelSpan);
+    btn.addEventListener('click', function() {
+      if (typeof window.setPage === 'function') { window.setPage(item.view); }
+    });
+    bnav.appendChild(btn);
+  });
+
+  document.body.appendChild(bnav);
+
+  function syncBottomNav(view) {
+    bnav.querySelectorAll('button').forEach(function(b) {
+      b.classList.toggle('active', b.getAttribute('data-view') === view);
+    });
+  }
+
+  function patchSetPage() {
+    if (typeof window.setPage === 'function') {
+      var _orig = window.setPage;
+      window.setPage = function(view) {
+        _orig(view);
+        syncBottomNav(view);
+        closeSidebar();
+      };
+      syncBottomNav('dashboard');
+    } else {
+      setTimeout(patchSetPage, 100);
+    }
+  }
+  patchSetPage();
+
+  // -- Data-label untuk tabel card-style di mobile --
+  function labelTableCells() {
+    document.querySelectorAll('.data-table').forEach(function(tbl) {
+      var headers = [];
+      tbl.querySelectorAll('thead th').forEach(function(th) {
+        headers.push(th.textContent.trim());
+      });
+      if (!headers.length) return;
+      tbl.querySelectorAll('tbody tr').forEach(function(row) {
+        row.querySelectorAll('td').forEach(function(td, i) {
+          if (headers[i]) { td.setAttribute('data-label', headers[i]); }
+        });
+      });
+    });
+  }
+  var tableObs = new MutationObserver(function() { labelTableCells(); });
+  tableObs.observe(document.body, { childList: true, subtree: true });
+  labelTableCells();
+
+  // -- Swipe gesture untuk sidebar --
+  var touchStartX = 0;
+  document.addEventListener('touchstart', function(e) {
+    touchStartX = e.touches[0].clientX;
+  }, { passive: true });
+  document.addEventListener('touchend', function(e) {
+    var dx = e.changedTouches[0].clientX - touchStartX;
+    if (touchStartX < 28 && dx > 60) { openSidebar(); }
+    if (dx < -60) {
+      var s = document.getElementById('sidebar');
+      if (s && s.classList.contains('open')) { closeSidebar(); }
+    }
+  }, { passive: true });
+
+});
+</script>
+
 </head>
 <body>
 
