@@ -135,7 +135,47 @@
     .toast{position:fixed;right:22px;bottom:22px;background:var(--navy-2);color:#fff;padding:14px 16px;border-radius:16px;box-shadow:0 18px 38px rgba(11,31,61,.24);z-index:70;max-width:360px}.toast b{display:block;margin-bottom:4px}.toast span{font-size:13px;color:rgba(255,255,255,.78)}
     @media(max-width:1100px){.grid-4{grid-template-columns:repeat(2,1fr)}.grid-3{grid-template-columns:repeat(2,1fr)}.inbox-layout{grid-template-columns:1fr}.pipeline-board{grid-template-columns:repeat(5,260px)}.login-wrap{grid-template-columns:1fr}.login-hero{display:none}.form-grid{grid-template-columns:1fr}.form-grid .span-2,.form-grid .span-3{grid-column:span 1}}
     @media(max-width:820px){:root{--sidebar:0}.app{grid-template-columns:1fr}.sidebar{position:fixed;z-index:40;left:-310px;width:290px;transition:.22s}.sidebar.open{left:0}.mobile-toggle{display:inline-flex}.topbar{padding:14px 16px}.content{padding:16px}.grid-4,.grid-3,.grid-2{grid-template-columns:1fr}.top-actions{justify-content:flex-start}.toolbar{width:100%}.toolbar input,.toolbar select{width:100%}.login-panel{padding:18px}.login-card{padding:24px}.kpi .value{font-size:28px}}
-  </style>
+  
+/* FIX: Sidebar isolation - cegah blur dari backdrop masuk ke sidebar */
+.sidebar {
+  isolation: isolate;
+}
+@media (max-width: 820px) {
+  .sidebar {
+    z-index: 45 !important;  /* lebih tinggi dari backdrop (39) */
+    isolation: isolate;
+  }
+  .sidebar .nav button {
+    pointer-events: auto !important;
+    opacity: 1 !important;
+    filter: none !important;
+    position: relative;
+    z-index: 46;
+    cursor: pointer;
+  }
+  .sidebar .nav button:hover,
+  .sidebar .nav button.active {
+    background: rgba(255,255,255,.18) !important;
+    color: #fff !important;
+    opacity: 1 !important;
+  }
+}
+
+/* FIX: Toolbar - pastikan selalu clickable */
+.toolbar {
+  position: relative;
+  z-index: 2;
+  pointer-events: auto !important;
+}
+.toolbar input,
+.toolbar select,
+.toolbar button {
+  pointer-events: auto !important;
+  opacity: 1 !important;
+  filter: none !important;
+  cursor: pointer;
+}
+</style>
 
   <!-- BLU Enhancement CSS -->
   <style id="blu-enhance">
@@ -272,9 +312,9 @@
   display: none;
   position: fixed;
   inset: 0;
-  background: rgba(11,31,61,.48);
+  background: rgba(11,31,61,.52);
   z-index: 39;
-  backdrop-filter: blur(2px);
+  /* backdrop-filter dihapus: menyebabkan blur pada nav sidebar */
 }
 #sidebarBackdrop.show { display: block; }
 
